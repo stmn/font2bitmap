@@ -14,8 +14,8 @@ It accepts both types of URL:
 
 ## Live
 
-- https://github.com/stmn/font2bitmap
 - https://stmn.itch.io/font2bitmap
+- https://stmn.github.io/font2bitmap
 
 ## Technicals
 

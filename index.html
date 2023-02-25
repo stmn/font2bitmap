@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Font To Bitmap Converter</title>
+    <meta name="description" content="Tool for converting fonts into bitmap fonts"/>
+    <meta name="keywords" content="bitmap, bitmap font, font to bitmap, ttf bitmap, woff bitmap"/>
+    
+    <style>
+        body {
+            background: #1D3557 !important;
+            font-size: 13px;
+            overflow: hidden;
+        }
+
+        #preview {
+            -webkit-font-smoothing: antialiased;
+            border: 5px solid #222C42;
+            color: #fff;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        input[type=number], input[type=text] {
+            max-height: 60px !important;
+        }
+
+        body.downloading {
+            background: transparent;
+        }
+
+        body.downloading #preview {
+            border: 0 !important;
+            padding: 0 !important;
+        }
+
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
+    <link href="//cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <script async src="google-fonts.js">window.googleFonts = {items: []}</script>
+  <script type="module" crossorigin src="assets/index.9db3f1f0.js"></script>
+</head>
+<body draggable="false" style="user-select: none;" x-data="converter">
+<div x-html="css"></div>
+<div class="container bg-grey mt-3" x-cloak>
+    <div class="row">
+        <div class="col">
+            <div class="form-floating mb-3">
+                <input type="text" x-model.debounce.100ms="fontUrl" list="fontsList"
+                       onclick="this.focus();this.select()"
+                       class="form-control form-control-sm border-0" id="font">
+                <label for="font">Font URL</label>
+            </div>
+            <datalist id="fontsList">
+                <template x-for="font in fontsList">
+                    <option x-text="`${font.name}`" :value="font.url"></option>
+                </template>
+            </datalist>
+        </div>
+        <div class="col" x-show="uniqueFonts().length > 1">
+            <div class="form-floating">
+                <select class="form-select" id="floatingSelect" x-model="fontIndex">
+                    <template x-for="(f, index) in uniqueFonts">
+                        <option x-text="`${f.name} [${f.style}] [${f.weight}]`" :value="index"
+                                style="text-transform: capitalize;"></option>
+                    </template>
+                </select>
+                <label for="floatingSelect">Font variant</label>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <div class="form-floating mb-3">
+                <input type="number" x-model="perRow" class="form-control form-control-sm border-0" id="perRow">
+                <label for="perRow">Per row</label>
+            </div>
+        </div>
+        <div class="col">
+            <div class="form-floating mb-3">
+                <input type="number" x-model="gridWidth" class="form-control form-control-sm border-0" id="gridWidth">
+                <label for="gridWidth">Grid width</label>
+            </div>
+        </div>
+        <div class="col">
+            <div class="form-floating mb-3">
+                <input type="number" x-model="gridHeight" class="form-control form-control-sm border-0" id="gridHeight">
+                <label for="gridHeight">Grid height</label>
+            </div>
+        </div>
+        <div class="col">
+            <div class="form-floating mb-3">
+                <input type="number" x-model="fontSize" class="form-control form-control-sm border-0" id="fontSize">
+                <label for="fontSize">Font size</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-floating mb-3">
+            <textarea x-model="characters" class="form-control form-control-sm border-0" id="characters"
+                      style="height: 71px;"></textarea>
+        <label for="characters">Characters</label>
+    </div>
+
+    <div class="card p-2 px-3 border-0">
+        <div class="">
+            <div class="float-start">
+                <div class="form-check form-switch form-control-sm">
+                    <input class="form-check-input" x-model="options.shadow" type="checkbox" role="switch"
+                           id="shadow">
+                    <label class="form-check-label" for="shadow">Shadow</label>
+                </div>
+            </div>
+            <div class="float-start ms-3">
+                <div class="form-check form-switch form-control-sm">
+                    <input class="form-check-input" x-model="options.subpixel" type="checkbox" role="switch"
+                           id="subpixel">
+                    <label class="form-check-label" for="subpixel">Subpixel antialiasing</label>
+                </div>
+            </div>
+            <div class="float-start ms-3">
+                <div class="form-check form-switch form-control-sm">
+                    <input class="form-check-input" x-model="options.italic" type="checkbox" role="switch"
+                           id="italic">
+                    <label class="form-check-label" for="italic">Italic</label>
+                </div>
+            </div>
+            <div class="float-start ms-3">
+                <div class="form-check form-switch form-control-sm">
+                    <input class="form-check-input" x-model="options.centered" type="checkbox" role="switch"
+                           id="centered">
+                    <label class="form-check-label" for="centered">Centered</label>
+                </div>
+            </div>
+            <div class="float-start ms-3">
+                <div class="form-check form-switch form-control-sm">
+                    <input class="form-check-input" x-model="options.showGrid" type="checkbox" role="switch"
+                           id="showGrid">
+                    <label class="form-check-label" for="showGrid">Show grid</label>
+                </div>
+            </div>
+            <div class="float-start ms-3">
+                <div class="form-check form-switch form-control-sm">
+                    <input class="form-check-input" x-model="options.fixedGrid" type="checkbox" role="switch"
+                           id="fixedGrid">
+                    <label class="form-check-label" for="fixedGrid">Fixed grid</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top: 15px; display: flex; justify-content: center;">
+        <div x-show="loading" class="text-white">
+            <div class="spinner-border text-light" role="status">
+                <span class="sr-only"></span>
+            </div>
+        </div>
+        <div x-show="!loading">
+            <template x-if="font() && !error">
+                <div x-html="html"
+                     :style="`font-family: '${font()?.name}'; font-weight: ${font()?.weight}; font-style: ${font()?.style};`"></div>
+            </template>
+            <template x-if="error">
+                <div class="alert alert-danger mb-0">
+                    Failed to fetch a font from provided URL.
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <div class="text-center mt-3">
+        <button class="btn btn-success" style="font-weight: 800;" @click="download()">DOWNLOAD BITMAP FONT</button>
+    </div>
+</div>
+
+<script src="//cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

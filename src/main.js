@@ -48,7 +48,6 @@ Alpine.data('converter', (a) => ({
         italic: false,
         centered: true,
         showGrid: false,
-        fixedGrid: false,
     },
 
     pixelRatio: window.devicePixelRatio,

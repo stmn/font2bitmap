@@ -30,7 +30,9 @@ function isValidURL(string) {
     return url.protocol === "http:" || url.protocol === "https:";
 }
 
-Alpine.data('converter', () => ({
+window.googleFonts = Alpine.reactive({items: []})
+
+Alpine.data('converter', (a) => ({
     loading: false,
     error: false,
 
@@ -53,12 +55,15 @@ Alpine.data('converter', () => ({
 
     fontIndex: 0,
     fonts: [],
-    fontsList: googleFonts.items.map((font) => {
-        return {
-            name: font.family,
-            url: 'https://fonts.googleapis.com/css2?family=' + (font.family.replace(/ /g, '+')) + ':wght@100;200;300;400;600;700;800;900',
-        };
-    }),
+
+    fontsList(){
+        return googleFonts.items.map((font) => {
+            return {
+                name: font.family,
+                url: 'https://fonts.googleapis.com/css2?family=' + (font.family.replace(/ /g, '+')) + ':wght@100;200;300;400;600;700;800;900',
+            };
+        })
+    },
 
     init() {
         this.loadURL(this.fontUrl);

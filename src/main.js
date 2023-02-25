@@ -50,8 +50,6 @@ Alpine.data('converter', (a) => ({
         showGrid: false,
     },
 
-    pixelRatio: window.devicePixelRatio,
-
     fontIndex: 0,
     fonts: [],
 
@@ -171,7 +169,7 @@ Alpine.data('converter', (a) => ({
         let html = '';
         let rowStyles = `display:flex; font-size: ${this.fontSize}px;`;
         let cellStyles = `display:flex; align-items: flex-end;`;
-        cellStyles += `width: ${this.gridWidth / this.pixelRatio}px; height: ${this.gridHeight / this.pixelRatio}px;`;
+        cellStyles += `width: ${this.gridWidth}px; height: ${this.gridHeight}px;`;
 
         // Prepare styles
         for (const [key] of Object.entries(this.options).filter(([key, value]) => value)) {
@@ -216,7 +214,7 @@ Alpine.data('converter', (a) => ({
 
         setTimeout(() => {
             htmlToImage.toPng(
-                document.getElementById('preview'), {pixelRatio: this.options.pixelRatio}
+                document.getElementById('preview'), {pixelRatio: 1}
             )
                 .then((dataUrl) => {
                     download(dataUrl, this.font().name + '.png');

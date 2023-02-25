@@ -37,9 +37,9 @@ Alpine.data('converter', (a) => ({
     error: false,
 
     perRow: 19,
-    gridWidth: 36,
-    gridHeight: 36,
-    fontSize: 18,
+    gridWidth: 30,
+    gridHeight: 30,
+    fontSize: 24,
     characters: " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
     fontUrl: 'https://fonts.gstatic.com/s/pressstart2p/v14/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2',
     options: {

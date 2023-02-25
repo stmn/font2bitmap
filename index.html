@@ -164,6 +164,16 @@
 
     <div class="text-center mt-3">
         <button class="btn btn-success" style="font-weight: 800;" @click="download()">DOWNLOAD BITMAP FONT</button>
+        <div class="dropdown" style="display: inline-block;" >
+            <button class="btn btn-success dropdown-toggle" style="height: 38px;" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">
+                Export
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+                <li><a class="dropdown-item" @click="exportCode('construct')">Construct 3</a></li>
+                <li><a class="dropdown-item" @click="exportCode('kaboom')">KaboomJS</a></li>
+            </ul>
+        </div>
+
     </div>
 </div>
 

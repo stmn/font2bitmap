@@ -1,6 +1,11 @@
 import Alpine from "alpinejs";
 import download from "downloadjs"
 import * as htmlToImage from 'html-to-image'
+import {isValidURL} from "./helpers";
+import exports from "./exports";
+import Toastify from 'toastify-js'
+import "toastify-js/src/toastify.css"
+
 
 const optionsStyles = {
     italic: {
@@ -20,16 +25,6 @@ const optionsStyles = {
     }
 }
 
-function isValidURL(string) {
-    let url;
-    try {
-        url = new URL(string);
-    } catch (_) {
-        return false;
-    }
-    return url.protocol === "http:" || url.protocol === "https:";
-}
-
 window.googleFonts = Alpine.reactive({items: []})
 
 Alpine.data('converter', (a) => ({
@@ -39,6 +34,7 @@ Alpine.data('converter', (a) => ({
     perRow: 19,
     gridWidth: 30,
     gridHeight: 30,
+    disabledGridSize: false,
     fontSize: 24,
     characters: " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
     fontUrl: 'https://fonts.gstatic.com/s/pressstart2p/v14/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2',
@@ -53,7 +49,7 @@ Alpine.data('converter', (a) => ({
     fontIndex: 0,
     fonts: [],
 
-    fontsList(){
+    fontsList() {
         return googleFonts.items.map((font) => {
             return {
                 name: font.family,
@@ -169,7 +165,10 @@ Alpine.data('converter', (a) => ({
         let html = '';
         let rowStyles = `display:flex; font-size: ${this.fontSize}px;`;
         let cellStyles = `display:flex; align-items: flex-end;`;
-        cellStyles += `width: ${this.gridWidth}px; height: ${this.gridHeight}px;`;
+
+        if (!this.disabledGridSize) {
+            cellStyles += `width: ${this.gridWidth}px; height: ${this.gridHeight}px;`;
+        }
 
         // Prepare styles
         for (const [key] of Object.entries(this.options).filter(([key, value]) => value)) {
@@ -185,9 +184,9 @@ Alpine.data('converter', (a) => ({
         // Prepare HTML
         let letters = this.characters.split("");
         while (letters.length) {
-            html += `<div style="${rowStyles}">`;
+            html += `<div class="line" style="${rowStyles}">`;
             for (let i = 0; i < this.perRow && letters.length; i++) {
-                html += `<span style="${cellStyles}">${letters.shift()}</span>`;
+                html += `<span class="cell" style="${cellStyles}">${letters.shift()}</span>`;
             }
             html += `</div>`;
         }
@@ -227,7 +226,18 @@ Alpine.data('converter', (a) => ({
                     this.options = options;
                 });
         }, 1);
-    }
+
+        Toastify({
+            text: "Downloading!",
+            duration: 2000,
+            gravity: "bottom",
+            position: "right",
+        }).showToast();
+    },
+
+    exportCode(name) {
+        exports[name](this);
+    },
 }))
 
 Alpine.start()

@@ -17,6 +17,10 @@ It accepts both types of URL:
 - https://stmn.itch.io/font2bitmap
 - https://stmn.github.io/font2bitmap
 
+## Limitations
+
+- Fetch will not work for URLs if the server has disabled 'cross-domain' requests (CORS)
+
 ## Technicals
 
 Under the hood project uses: Vite, Bootstrap 5, AlpineJS 

@@ -40,7 +40,11 @@ Alpine.data('converter', (a) => ({
     disabledGridSize: false,
     fontSize: 24,
     characters: " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
+
+    inputType: 'fontUrl', // fontUrl or file
     fontUrl: 'https://fonts.gstatic.com/s/pressstart2p/v14/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2',
+    file: null,
+
     options: {
         shadow: false,
         antialiasing: false,
@@ -76,6 +80,11 @@ Alpine.data('converter', (a) => ({
                 this.options.subpixel = false;
             }
         })
+    },
+
+    onFile(event) {
+        let url = URL.createObjectURL(event.target.files[0]);
+        this.loadURL(url)
     },
 
     /**

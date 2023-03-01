@@ -46,6 +46,30 @@
 <div x-html="css"></div>
 <div class="container bg-grey mt-3" x-cloak>
     <div class="row">
+        <div class="col" style="color: #fff; margin-bottom: 3px; font-size: 13px;">
+            <b>Upload:</b>
+            <div class="form-check form-check-inline ms-1">
+                <input x-model="inputType" class="form-check-input" type="radio" name="inputType_fontUrl" id="inputType_fontUrl" value="fontUrl" checked>
+                <label class="form-check-label" for="inputType_fontUrl">
+                    From URL
+                </label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input x-model="inputType" class="form-check-input" type="radio" name="inputType_file" id="inputType_file" value="file">
+                <label class="form-check-label" for="inputType_file">
+                    From File
+                </label>
+            </div>
+        </div>
+    </div>
+    <div x-show="inputType==='file'" class="row">
+        <div class="col">
+            <div class="mb-3">
+                <input class="form-control" x-on:change="onFile($event)" type="file" id="file">
+            </div>
+        </div>
+    </div>
+    <div x-show="inputType==='fontUrl'" class="row">
         <div class="col">
             <div class="form-floating mb-3">
                 <input type="text" x-model.debounce.100ms="fontUrl" list="fontsList"

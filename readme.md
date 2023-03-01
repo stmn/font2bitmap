@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.png)](https://opensource.org/licenses/MIT)
 
-This tool allow to convert web **fonts** into **bitmap fonts**.
+This tool allows to convert web **fonts** into **bitmap fonts** from remote URLs and **local files**.
 
 It accepts both types of URL:
 

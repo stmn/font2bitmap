@@ -12,14 +12,15 @@
             background: #1D3557 !important;
             font-size: 13px;
             overflow: hidden;
+            -webkit-font-smoothing: antialiased;
         }
 
         #preview {
-            -webkit-font-smoothing: antialiased;
             border: 5px solid #222C42;
             color: #fff;
             border-radius: 10px;
             padding: 15px;
+            -webkit-font-smoothing: none;
         }
 
         input[type=number], input[type=text] {
@@ -114,9 +115,16 @@
             </div>
             <div class="float-start ms-3">
                 <div class="form-check form-switch form-control-sm">
+                    <input class="form-check-input" x-model="options.antialiasing" type="checkbox" role="switch"
+                           id="antialiasing">
+                    <label class="form-check-label" for="antialiasing">Antialiasing</label>
+                </div>
+            </div>
+            <div class="float-start ms-3" x-show="options.antialiasing">
+                <div class="form-check form-switch form-control-sm">
                     <input class="form-check-input" x-model="options.subpixel" type="checkbox" role="switch"
                            id="subpixel">
-                    <label class="form-check-label" for="subpixel">Subpixel antialiasing</label>
+                    <label class="form-check-label" for="subpixel">Subpixel AA</label>
                 </div>
             </div>
             <div class="float-start ms-3">

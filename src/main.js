@@ -14,6 +14,9 @@ const optionsStyles = {
     shadow: {
         rowStyles: `text-shadow: -2px -2px 0 black, -2px -1px 0 black, -2px 0px 0 black, -2px 1px 0 black, -2px 2px 0 black, -1px -2px 0 black, -1px -1px 0 black, -1px 0px 0 black, -1px 1px 0 black, -1px 2px 0 black, 0px -2px 0 black, 0px -1px 0 black, 0px 0px 0 black, 0px 1px 0 black, 0px 2px 0 black, 1px -2px 0 black, 1px -1px 0 black, 1px 0px 0 black, 1px 1px 0 black, 1px 2px 0 black, 2px -2px 0 black, 2px -1px 0 black, 2px 0px 0 black, 2px 1px 0 black, 2px 2px 0 black`
     },
+    antialiasing: {
+        cellStyles: `-webkit-font-smoothing: antialiased;`
+    },
     subpixel: {
         cellStyles: `-webkit-font-smoothing: subpixel-antialiased;`
     },
@@ -40,6 +43,7 @@ Alpine.data('converter', (a) => ({
     fontUrl: 'https://fonts.gstatic.com/s/pressstart2p/v14/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2',
     options: {
         shadow: false,
+        antialiasing: false,
         subpixel: false,
         italic: false,
         centered: true,
@@ -64,6 +68,12 @@ Alpine.data('converter', (a) => ({
         this.$watch('fontUrl', async () => {
             if (isValidURL(this.fontUrl)) {
                 await this.loadURL(this.fontUrl);
+            }
+        })
+
+        this.$watch('options', async () => {
+            if (!this.options.antialiasing) {
+                this.options.subpixel = false;
             }
         })
     },

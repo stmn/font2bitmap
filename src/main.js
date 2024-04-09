@@ -52,6 +52,7 @@ Alpine.data('converter', (a) => ({
         italic: false,
         centered: true,
         showGrid: false,
+        removeDuplicates: false,
     },
 
     fontIndex: 0,
@@ -103,6 +104,14 @@ Alpine.data('converter', (a) => ({
         return this.fonts.filter((font, index) => {
             return this.fonts.findIndex((f) => f.name === font.name && f.weight === font.weight && f.style === font.style) === index;
         });
+    },
+
+    /**
+     * Get unique Characters
+     * @returns {string}
+     */
+    uniqueCharacters() {
+        return [...new Set(this.characters)].join("");
     },
 
     /**
@@ -200,9 +209,13 @@ Alpine.data('converter', (a) => ({
             }
         }
 
+        // Remove duplicate characters
+        if (this.options.removeDuplicates) {
+            this.characters = this.uniqueCharacters();
+        }
+
         // Prepare HTML
-        this.characters = [...new Set(this.characters)];
-        let letters = this.characters;
+        let letters = this.characters.split("");
         while (letters.length) {
             html += `<div class="line" style="${rowStyles}">`;
             for (let i = 0; i < this.perRow && letters.length; i++) {

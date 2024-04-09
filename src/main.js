@@ -52,6 +52,7 @@ Alpine.data('converter', (a) => ({
         italic: false,
         centered: true,
         showGrid: false,
+        removeDuplicates: false,
     },
 
     fontIndex: 0,
@@ -103,6 +104,14 @@ Alpine.data('converter', (a) => ({
         return this.fonts.filter((font, index) => {
             return this.fonts.findIndex((f) => f.name === font.name && f.weight === font.weight && f.style === font.style) === index;
         });
+    },
+
+    /**
+     * Get unique Characters
+     * @returns {string}
+     */
+    uniqueCharacters() {
+        return [...new Set(this.characters)].join("");
     },
 
     /**
@@ -198,6 +207,11 @@ Alpine.data('converter', (a) => ({
             if (rs) {
                 rowStyles += rs;
             }
+        }
+
+        // Remove duplicate characters
+        if (this.options.removeDuplicates) {
+            this.characters = this.uniqueCharacters();
         }
 
         // Prepare HTML

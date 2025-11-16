@@ -22,7 +22,7 @@ Example: https://fonts.googleapis.com/css2?family=Press+Start+2P.
 
 ## Limitations
 
-- **Disabling antialiasing** in browsers can be somewhat challenging. If you are using Chrome on MacOS, the feature works smoothly with the style `-webkit-font-smoothing: none;`. However, if you're on a different OS or using Firefox on MacOS, you may need to disable antialiasing at the browser or system settings level. For **Firefox**, you can turn off antialiasing by navigating to `about:config` and setting `gfx.text.disable-aa` to `true`.
+- Disabling antialiasing in browsers is now almost technically impossible. If you need a bitmap without antialiasing, I recommend using non-browser tools. I published one of them here:  https://stmn.itch.io/font2bitmap-standalone
 
 
 - If you enter URL it will not work if the server has disabled 'cross-domain' requests (CORS); however, all public font providers should have disabled it.

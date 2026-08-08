@@ -44,6 +44,77 @@ export const outlineShadow = (width, color) => {
     return shadows.join(', ');
 }
 
+/**
+ * Codepoints that a font may map but that can never be drawn as a glyph on the
+ * grid: controls, formatting marks, surrogate halves and noncharacters
+ */
+const NON_PRINTABLE_RANGES = [
+    [0x0000, 0x001f], // C0 controls
+    [0x007f, 0x009f], // delete and C1 controls
+    [0x00ad, 0x00ad], // soft hyphen
+    [0x0600, 0x0605], // arabic number signs
+    [0x061c, 0x061c], // arabic letter mark
+    [0x180e, 0x180e], // mongolian vowel separator
+    [0x200b, 0x200f], // zero width characters and bidi marks
+    [0x2028, 0x202e], // line and paragraph separators, bidi overrides
+    [0x2060, 0x206f], // word joiner, invisible operators, deprecated formats
+    [0xd800, 0xdfff], // surrogate halves, not characters on their own
+    [0xfdd0, 0xfdef], // noncharacters
+    [0xfe00, 0xfe0f], // variation selectors
+    [0xfeff, 0xfeff], // byte order mark
+    [0xfff9, 0xfffb], // interlinear annotation
+    [0xe0000, 0xe007f], // tags
+    [0xe0100, 0xe01ef], // variation selectors supplement
+];
+
+const MAX_CODEPOINT = 0x10ffff;
+
+const isPrintableCodepoint = (codepoint) => {
+    if (!Number.isInteger(codepoint) || codepoint < 0 || codepoint > MAX_CODEPOINT) {
+        return false;
+    }
+
+    // every plane ends with two noncharacters
+    if ((codepoint & 0xfffe) === 0xfffe) {
+        return false;
+    }
+
+    return !NON_PRINTABLE_RANGES.some(([from, to]) => codepoint >= from && codepoint <= to);
+}
+
+/**
+ * Turn the codepoints of a font cmap into a character set for the grid:
+ * unique, printable, ascending
+ * @param codepoints iterable of numbers, in any order
+ * @returns {string}
+ */
+export const codepointsToCharacters = (codepoints) => [...new Set(codepoints ?? [])]
+    .filter(isPrintableCodepoint)
+    .sort((a, b) => a - b)
+    .map((codepoint) => String.fromCodePoint(codepoint))
+    .join('');
+
+/**
+ * Every codepoint the font binary maps, read from its cmap.
+ * fontkit is imported lazily: it is bigger than the whole app and only needed
+ * when this runs. Its browser build carries the brotli decoder woff2 needs
+ * @param url font binary, http(s) or a blob: URL of an uploaded file
+ * @returns {Promise<number[]>}
+ */
+export const loadFontCodepoints = async (url) => {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+        throw new Error(`Font request failed with ${response.status}`);
+    }
+
+    const {create} = await import('fontkit');
+    const font = create(new Uint8Array(await response.arrayBuffer()));
+
+    // a collection (ttc/otc) has no cmap of its own, so read the first face
+    return [...(font.characterSet ?? font.fonts?.[0]?.characterSet ?? [])];
+}
+
 export const serializeState = (state) => encodeURIComponent(JSON.stringify(state));
 
 export const deserializeState = (raw) => {

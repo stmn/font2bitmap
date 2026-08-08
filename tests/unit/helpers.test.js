@@ -8,6 +8,7 @@ import {
     positiveInt,
     clampOutlineWidth,
     sanitizeState,
+    codepointsToCharacters,
 } from '../../src/helpers.js';
 
 describe('parseFontFaces', () => {
@@ -103,6 +104,47 @@ describe('clampOutlineWidth', () => {
         expect(clampOutlineWidth(-10)).toBe(1);
         expect(clampOutlineWidth('')).toBe(1);
         expect(clampOutlineWidth('3')).toBe(3);
+    });
+});
+
+describe('codepointsToCharacters', () => {
+    it('sorts ascending and drops duplicates', () => {
+        expect(codepointsToCharacters([0x43, 0x41, 0x42, 0x41])).toBe('ABC');
+    });
+
+    it('keeps the space and printable punctuation', () => {
+        expect(codepointsToCharacters([0x21, 0x20])).toBe(' !');
+    });
+
+    it('drops control characters', () => {
+        // null, tab, newline, delete and a C1 control
+        expect(codepointsToCharacters([0x00, 0x09, 0x0a, 0x41, 0x7f, 0x85])).toBe('A');
+    });
+
+    it('drops invisible formatting characters', () => {
+        const invisible = [0xad, 0x200b, 0x200e, 0x2028, 0x202e, 0x2060, 0xfeff, 0xfe0f];
+        expect(codepointsToCharacters([0x41, ...invisible])).toBe('A');
+    });
+
+    it('drops surrogate halves and noncharacters', () => {
+        expect(codepointsToCharacters([0xd800, 0xdfff, 0xfdd0, 0xfffe, 0xffff, 0x1fffe, 0x41])).toBe('A');
+    });
+
+    it('keeps characters outside the basic plane', () => {
+        expect(codepointsToCharacters([0x1f600])).toBe('\u{1f600}');
+    });
+
+    it('ignores values that are not codepoints', () => {
+        expect(codepointsToCharacters([1.5, -1, 0x110000, NaN, undefined, null, '65', 0x41])).toBe('A');
+    });
+
+    it('handles an empty or missing set', () => {
+        expect(codepointsToCharacters([])).toBe('');
+        expect(codepointsToCharacters(undefined)).toBe('');
+    });
+
+    it('accepts any iterable, a Set included', () => {
+        expect(codepointsToCharacters(new Set([0x42, 0x41]))).toBe('AB');
     });
 });
 

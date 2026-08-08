@@ -47,8 +47,19 @@
             padding: 0 !important;
         }
 
+        /* Single source of truth for the room the tools cluster needs */
+        :root {
+            --characters-tools-width: 215px;
+        }
+
+        #characters {
+            height: 71px;
+            padding-right: var(--characters-tools-width);
+        }
+
         /* Minimal text controls floating over the top right corner of the textarea.
-           Only the cluster itself takes pointer events, so typing is never blocked */
+           Only the links take pointer events, so clicking the corner or typing in
+           the textarea still works */
         .characters-tools {
             position: absolute;
             top: 4px;
@@ -56,10 +67,28 @@
             z-index: 3;
             font-size: 11px;
             line-height: 1;
+            pointer-events: none;
         }
 
         .characters-tools a {
             font-size: 11px;
+        }
+
+        .characters-tools a,
+        .characters-tools .dropdown {
+            pointer-events: auto;
+        }
+
+        /* No room for the counter on a narrow screen, so it goes and the
+           reserved padding shrinks with it */
+        @media (max-width: 575px) {
+            :root {
+                --characters-tools-width: 165px;
+            }
+
+            .characters-count {
+                display: none;
+            }
         }
 
         [x-cloak] {
@@ -87,7 +116,7 @@
                     From File
                 </label>
             </div>
-            <div class="form-check form-switch ms-2">
+            <div class="form-check form-switch ms-auto">
                 <input class="form-check-input" x-model="advanced" type="checkbox" role="switch" id="advanced">
                 <label class="form-check-label" for="advanced">Advanced options</label>
             </div>
@@ -154,11 +183,11 @@
     </div>
 
     <div class="form-floating mb-3 position-relative">
-            <textarea x-model="characters" class="form-control form-control-sm border-0" id="characters"
-                      style="height: 71px; padding-right: 230px;"></textarea>
+            <textarea x-model="characters" class="form-control form-control-sm border-0" id="characters"></textarea>
         <label for="characters">Characters</label>
         <div class="characters-tools d-flex align-items-center gap-2">
-            <span class="text-muted" x-text="`${uniqueCharacters().length} / ${characters.length}`"></span>
+            <span class="characters-count text-muted"
+                  x-text="`${uniqueCharacters().length} / ${characters.length}`"></span>
             <a href="#" id="removeDuplicates" class="link-secondary text-decoration-none"
                @click.prevent="removeDuplicates()">Remove duplicates</a>
             <div class="dropdown">
@@ -166,8 +195,15 @@
                    role="button" data-bs-toggle="dropdown" aria-expanded="false">Presets</a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="presetsDropdown">
                     <template x-for="name in presetNames()">
-                        <li><a class="dropdown-item" href="#" @click.prevent="addPreset(name)" x-text="name"></a></li>
+                        <li><a class="dropdown-item" href="#" @click.prevent="setPreset(name)" x-text="name"></a></li>
                     </template>
+                    <li>
+                        <a class="dropdown-item" href="#" id="allGlyphs"
+                           :class="glyphsAvailable() ? '' : 'disabled'"
+                           :aria-disabled="glyphsAvailable() ? 'false' : 'true'"
+                           @click.prevent="useAllGlyphs()"
+                           x-text="glyphsLoading ? 'Reading glyphs...' : 'All glyphs in font'"></a>
+                    </li>
                     <li><hr class="dropdown-divider"></li>
                     <li><a class="dropdown-item" href="#" @click.prevent="clearCharacters()">Clear</a></li>
                 </ul>
@@ -256,10 +292,13 @@
                 </select>
             </div>
         </div>
-        <div class="form-floating mt-2">
-            <input type="text" x-model="sampleText" class="form-control form-control-sm border-0" id="sampleText" placeholder="Sample">
-            <label for="sampleText">Sample text (preview only, not exported)</label>
-        </div>
+    </div>
+
+    <!-- its own block on the page background, not buried in the white card
+         where a borderless white input is invisible -->
+    <div class="form-floating mt-2" x-show="advanced">
+        <input type="text" x-model="sampleText" class="form-control form-control-sm border-0" id="sampleText" placeholder="Sample">
+        <label for="sampleText">Sample text (preview only, not exported)</label>
     </div>
 
     <div class="text-center mt-3">

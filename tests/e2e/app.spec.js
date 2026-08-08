@@ -133,12 +133,45 @@ test('kaplay export copies code and shows a toast', async ({page}) => {
     await expect(page.locator('.toastify')).toBeVisible();
 });
 
-test('character presets append without duplicates', async ({page}) => {
+/**
+ * The presets used to only append what was missing, so from the default full
+ * ASCII set every ASCII preset was a silent no-op. They replace now.
+ */
+test('a preset replaces the characters, even from the default set', async ({page}) => {
     await loadFixtureFont(page);
-    await page.fill('#characters', '012');
+    await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
+
     await page.click('#presetsDropdown');
     await page.click('.dropdown-item:has-text("Digits")');
     await expect(page.locator('#characters')).toHaveValue('0123456789');
+    await expect(page.locator('#preview .cell')).toHaveCount(10);
+
+    await page.click('#presetsDropdown');
+    await page.click('.dropdown-item:has-text("Uppercase")');
+    await expect(page.locator('#characters')).toHaveValue('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+});
+
+test('all glyphs in font fills the characters from the font cmap', async ({page}) => {
+    await loadFixtureFont(page);
+    await page.fill('#characters', 'A');
+
+    await page.click('#presetsDropdown');
+    await expect(page.locator('#allGlyphs')).not.toHaveClass(/disabled/);
+    await page.click('#allGlyphs');
+
+    // Press Start 2P covers ASCII and then some
+    await expect(page.locator('#characters')).not.toHaveValue('A');
+    const characters = await page.inputValue('#characters');
+    expect(characters).toContain('A');
+    expect(characters).toContain('z');
+    expect(characters).toContain('0');
+    expect(Array.from(characters).length).toBeGreaterThan(90);
+    // control characters from the cmap never reach the grid
+    expect(characters).not.toContain('\r');
+    // ascending, so the digits come before the letters
+    expect(characters.indexOf('0')).toBeLessThan(characters.indexOf('A'));
+
+    await expect(page.locator('#preview .cell')).toHaveCount(Array.from(characters).length);
 });
 
 test('the presets dropdown can clear the characters', async ({page}) => {
@@ -254,6 +287,11 @@ const expectErrorBanner = async (page, brokenUrl) => {
     await expect(page.locator('#preview')).toHaveCount(0);
     // nothing to preview, so the mode toggle goes away with the grid
     await expect(page.locator('#previewModeBitmap')).toBeHidden();
+
+    // and there is no font binary to read glyphs from
+    await page.click('#presetsDropdown');
+    await expect(page.locator('#allGlyphs')).toHaveClass(/disabled/);
+    await page.keyboard.press('Escape');
 };
 
 test('bad font URL shows an error instead of crashing', async ({page}) => {

@@ -3,8 +3,10 @@ import download from "downloadjs"
 import * as htmlToImage from 'html-to-image'
 import {
     clampOutlineWidth,
+    codepointsToCharacters,
     deserializeState,
     isValidURL,
+    loadFontCodepoints,
     outlineShadow,
     parseFontFaces,
     PERSISTED_KEYS,
@@ -48,6 +50,12 @@ const characterPresets = {
 
 const PERSIST_DELAY = 300;
 
+/**
+ * Past this many characters the grid and the exports get slow enough
+ * that the user deserves a warning
+ */
+const SLOW_CHARACTERS = 2000;
+
 window.googleFonts = Alpine.reactive({items: []})
 
 Alpine.data('converter', (a) => ({
@@ -66,6 +74,7 @@ Alpine.data('converter', (a) => ({
     // view only, never persisted
     advanced: false,
     previewMode: 'bitmap', // bitmap or sample
+    glyphsLoading: false,
 
     inputType: 'fontUrl', // fontUrl or file
     fontUrl: 'https://fonts.gstatic.com/s/pressstart2p/v14/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2',
@@ -249,15 +258,57 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
-     * Append preset characters that are not present yet
+     * Replace the current set with a preset
      */
-    addPreset(name) {
-        const missing = Array.from(characterPresets[name]).filter((char) => !this.characters.includes(char));
-        this.characters += missing.join("");
+    setPreset(name) {
+        this.characters = characterPresets[name];
     },
 
     clearCharacters() {
         this.characters = "";
+    },
+
+    /**
+     * The font binary has to be fetched and parsed to know its glyphs, so the
+     * menu entry has to wait for a font to be there
+     * @returns {boolean}
+     */
+    glyphsAvailable() {
+        // a failed load leaves the previous font in place, so error has to be
+        // checked as well - the same condition the preview itself uses
+        return Boolean(this.font()) && !this.error && !this.loading && !this.glyphsLoading;
+    },
+
+    /**
+     * Replace the current set with every printable character the loaded font
+     * actually maps
+     */
+    async useAllGlyphs() {
+        if (!this.glyphsAvailable()) {
+            return;
+        }
+
+        this.glyphsLoading = true;
+
+        try {
+            const characters = codepointsToCharacters(await loadFontCodepoints(this.font().url));
+
+            if (!characters) {
+                toast("No glyphs found in this font!");
+                return;
+            }
+
+            this.characters = characters;
+
+            if (characters.length > SLOW_CHARACTERS) {
+                toast(`${characters.length} glyphs added, exporting will be slow!`);
+            }
+        } catch (e) {
+            console.error(e);
+            toast("Could not read the glyphs of this font!");
+        } finally {
+            this.glyphsLoading = false;
+        }
     },
 
     /**

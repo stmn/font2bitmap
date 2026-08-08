@@ -13,6 +13,12 @@ const cssFace = (name, {style = 'normal', weight = 400} = {}) =>
     `@font-face { font-family: '${name}'; font-style: ${style}; font-weight: ${weight}; src: url(${FIXTURE_URL}); }`;
 
 /**
+ * The same, with both optional descriptors left out - the browser defaults them
+ * to normal/400 and the app has nothing to read
+ */
+const bareCssFace = (name) => `@font-face { font-family: '${name}'; src: url(${FIXTURE_URL}); }`;
+
+/**
  * Serve a stylesheet, optionally after a delay, so a slow load can be raced
  * against a newer one
  */
@@ -324,6 +330,11 @@ test('a saved session brings an uploaded font file back', async ({page}) => {
     await expect(page.locator('#restoredFile')).toHaveText(`Restored: ${FIXTURE_FILE_NAME}`);
     await expect(page.locator('#characters')).toHaveValue('XYZ');
     await expect(page.locator('#preview .cell')).toHaveCount(3);
+    // the face is served from a fresh blob, so the bytes did come out of
+    // IndexedDB and not from the default font the page had loaded
+    await expect
+        .poll(() => page.evaluate(() => document.querySelector('style[x-text]').textContent))
+        .toContain('url(blob:');
     expect(errors).toEqual([]);
 });
 
@@ -355,6 +366,40 @@ test('a session whose uploaded font is gone restores without it', async ({page})
     await expect(page.locator('#preview .cell')).toHaveCount(3);
     await expect(page.locator('#restoredFile')).toBeHidden();
     expect(errors).toEqual([]);
+});
+
+/**
+ * A write can be skipped, over the size cap, or refused outright, which leaves
+ * an earlier upload in store. Loading those bytes under the name of the file
+ * this session was working on would be the wrong font, silently
+ */
+test('a stored font from another upload is not restored in its place', async ({page}) => {
+    await uploadFixtureFont(page);
+    await waitForPersistedState(page, [['"inputType":"file"'], ['"characters":"XYZ"']]);
+
+    await page.evaluate(() => new Promise((resolve, reject) => {
+        const open = indexedDB.open('font2bitmap', 1);
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+            const db = open.result;
+            const put = db.transaction('files', 'readwrite').objectStore('files')
+                .put({name: 'other.ttf', type: 'font/ttf', data: new ArrayBuffer(8)}, 'lastFont');
+            put.onerror = () => reject(put.error);
+            put.onsuccess = () => {
+                db.close();
+                resolve();
+            };
+        };
+    }));
+
+    await page.goto('/');
+    await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
+
+    await page.click('#inputType_lastSession');
+
+    await expect(page.locator('.toastify')).toContainText('Saved font file is no longer available');
+    await expect(page.locator('#characters')).toHaveValue('XYZ');
+    await expect(page.locator('#restoredFile')).toBeHidden();
 });
 
 /**
@@ -420,6 +465,45 @@ test('a restored session keeps the selected font variant of a CSS URL', async ({
     // as the characters are - read it once, retrying would hide a late reload
     await expect(page.locator('#characters')).toHaveValue('XYZ');
     expect(await page.inputValue('#floatingSelect')).toBe('1');
+});
+
+/**
+ * A @font-face may declare neither weight nor style, and the preview binds both
+ * as a style object. Whatever the previous font asked for has to go with it,
+ * or the preview would stay synthetically bold and italic while the export,
+ * which reads the descriptors themselves, would not
+ */
+test('a face without weight and style descriptors resets the preview', async ({page}) => {
+    const boldUrl = 'http://localhost:5199/bold.css';
+    const bareUrl = 'http://localhost:5199/bare.css';
+
+    await page.route(boldUrl, (route) => route.fulfill({
+        contentType: 'text/css',
+        body: cssFace('BoldFace', {style: 'italic', weight: 700}),
+    }));
+    await page.route(bareUrl, (route) => route.fulfill({
+        contentType: 'text/css',
+        body: bareCssFace('BareFace'),
+    }));
+
+    await page.goto('/');
+    await expect(page.locator('#preview .cell').first()).toBeVisible({timeout: 10000});
+
+    const cell = page.locator('#preview .cell').first();
+
+    const bold = page.waitForResponse(boldUrl);
+    await page.fill('#font', boldUrl);
+    await bold;
+    await expect.poll(() => loadedFontName(page)).toBe('BoldFace');
+    await expect(cell).toHaveCSS('font-weight', '700');
+    await expect(cell).toHaveCSS('font-style', 'italic');
+
+    const bare = page.waitForResponse(bareUrl);
+    await page.fill('#font', bareUrl);
+    await bare;
+    await expect.poll(() => loadedFontName(page)).toBe('BareFace');
+    await expect(cell).toHaveCSS('font-weight', '400');
+    await expect(cell).toHaveCSS('font-style', 'normal');
 });
 
 /**

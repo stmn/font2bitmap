@@ -1,5 +1,7 @@
 import {describe, it, expect, afterEach} from 'vitest';
 import {
+    clearStoredFontFile,
+    fontFileTooLarge,
     glyphsLoadedMessage,
     MAX_STORED_FONT_BYTES,
     readStoredFontFile,
@@ -201,8 +203,16 @@ describe('stored font file', () => {
             },
         });
 
+        expect(fontFileTooLarge(tooBig)).toBe(true);
+        expect(fontFileTooLarge(fileStub())).toBe(false);
+        expect(fontFileTooLarge(null)).toBe(false);
+
         await expect(writeStoredFontFile(tooBig)).resolves.toBeUndefined();
         await expect(writeStoredFontFile(null)).resolves.toBeUndefined();
+    });
+
+    it('swallows a clear with no IndexedDB at all', async () => {
+        await expect(clearStoredFontFile()).resolves.toBeUndefined();
     });
 });
 

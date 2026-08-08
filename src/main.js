@@ -5,6 +5,7 @@ import {
     clampOutlineWidth,
     codepointsToCharacters,
     deserializeState,
+    fontFileTooLarge,
     glyphsLoadedMessage,
     isValidURL,
     loadFontCodepoints,
@@ -217,8 +218,10 @@ Alpine.data('converter', (a) => ({
 
         this.applyState(state);
 
-        if (inputType === 'file') {
-            await this.restoreSavedFontFile();
+        // an upload only comes back if the session really had one: the radio
+        // can be moved to "From File" without ever picking a file
+        if (inputType === 'file' && fontFile) {
+            await this.restoreSavedFontFile(fontFile);
             return;
         }
 
@@ -235,10 +238,15 @@ Alpine.data('converter', (a) => ({
      * Load the font the previous session uploaded, from the bytes read in init.
      * They can be gone for good: storage cleared, or a share link carrying the
      * marker opened on another machine. The current font stays in that case
+     * @param marker the {name} of the file that session was working on
      * @returns {Promise<void>}
      */
-    async restoreSavedFontFile() {
-        const file = storedFontFileToFile(await this.savedFontFile);
+    async restoreSavedFontFile(marker) {
+        const record = await this.savedFontFile;
+
+        // the names have to line up, or what is in store belongs to an earlier
+        // upload: a write can be skipped over the size cap or refused outright
+        const file = record?.name === marker.name ? storedFontFileToFile(record) : null;
 
         if (!file) {
             // the stashed variant belongs to the session that cannot come back
@@ -296,8 +304,9 @@ Alpine.data('converter', (a) => ({
         });
 
         // the blob URL of an uploaded font dies with the session, so only the
-        // marker is kept - the bytes behind it are in IndexedDB
-        if (state.inputType === 'file') {
+        // marker is kept - the bytes behind it are in IndexedDB. Without a
+        // marker there is no upload to come back to, so the URL source stays
+        if (state.inputType === 'file' && state.fontFile) {
             delete state.fontUrl;
         } else {
             delete state.fontFile;
@@ -332,6 +341,10 @@ Alpine.data('converter', (a) => ({
         this.restoredFontName = remember ? null : file.name;
 
         if (remember) {
+            if (fontFileTooLarge(file)) {
+                toast("Font file too large to remember");
+            }
+
             // chained onto the read of init, which must not see this write
             this.savedFontFile = this.savedFontFile
                 .then(async (previous) => {
@@ -610,10 +623,13 @@ Alpine.data('converter', (a) => ({
     previewFont() {
         const font = this.font();
 
+        // a @font-face may omit weight and style. An empty string removes the
+        // property, undefined would be written out as the invalid value
+        // "undefined" and only ever cleared by Alpine undoing the last binding
         return {
             'font-family': `'${font?.name}'`,
-            'font-weight': font?.weight,
-            'font-style': font?.style,
+            'font-weight': font?.weight ?? '',
+            'font-style': font?.style ?? '',
         };
     },
 

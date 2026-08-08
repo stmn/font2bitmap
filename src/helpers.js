@@ -217,6 +217,21 @@ export const readStoredFontFile = async () => {
     }
 }
 
+export const fontFileTooLarge = (file) => Boolean(file) && file.size > MAX_STORED_FONT_BYTES;
+
+/**
+ * Forget the stored upload, so nothing is left for the marker of a session
+ * whose own bytes were never kept
+ * @returns {Promise<void>}
+ */
+export const clearStoredFontFile = async () => {
+    try {
+        await withFontStore('readwrite', (store) => store.delete(FONT_RECORD_KEY));
+    } catch (e) {
+        // nothing to clear if the database cannot even be opened
+    }
+}
+
 /**
  * Keep the bytes of an uploaded font, so "Last session" can bring it back.
  * Silent on failure, exactly like the localStorage helpers: the session simply
@@ -225,7 +240,14 @@ export const readStoredFontFile = async () => {
  * @returns {Promise<void>}
  */
 export const writeStoredFontFile = async (file) => {
-    if (!file || file.size > MAX_STORED_FONT_BYTES) {
+    if (!file) {
+        return;
+    }
+
+    // an upload too big to keep has to take the previous one with it, or the
+    // next session would restore those older bytes under this file's name
+    if (fontFileTooLarge(file)) {
+        await clearStoredFontFile();
         return;
     }
 

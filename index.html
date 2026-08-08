@@ -138,6 +138,15 @@
         <label for="characters">Characters</label>
     </div>
 
+    <div class="mb-3 d-flex align-items-center gap-2 flex-wrap" style="color: #fff; font-size: 12px;">
+        <span>Presets:</span>
+        <template x-for="name in presetNames()">
+            <button class="btn btn-sm btn-outline-light" @click="addPreset(name)" x-text="name"></button>
+        </template>
+        <button class="btn btn-sm btn-outline-danger" @click="clearCharacters()">Clear</button>
+        <span class="ms-auto" x-text="`${uniqueCharacters().length} unique / ${characters.length} total`"></span>
+    </div>
+
     <div class="card p-2 px-3 border-0">
         <div class="">
             <div class="float-start">

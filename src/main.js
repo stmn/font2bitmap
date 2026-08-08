@@ -28,6 +28,14 @@ const optionsStyles = {
     }
 }
 
+const characterPresets = {
+    'ASCII': " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
+    'Digits': "0123456789",
+    'Uppercase': "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    'Polish': "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ",
+    'Latin-1': "¡¢£¥§©«®°±²³µ¶·»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ",
+};
+
 window.googleFonts = Alpine.reactive({items: []})
 
 Alpine.data('converter', (a) => ({
@@ -128,6 +136,22 @@ Alpine.data('converter', (a) => ({
      */
     effectiveCharacters() {
         return this.options.removeDuplicates ? this.uniqueCharacters() : this.characters;
+    },
+
+    presetNames() {
+        return Object.keys(characterPresets);
+    },
+
+    /**
+     * Append preset characters that are not present yet
+     */
+    addPreset(name) {
+        const missing = Array.from(characterPresets[name]).filter((char) => !this.characters.includes(char));
+        this.characters += missing.join("");
+    },
+
+    clearCharacters() {
+        this.characters = "";
     },
 
     /**

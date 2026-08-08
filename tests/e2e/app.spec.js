@@ -153,6 +153,42 @@ test('exports BMFont .fnt and ZIP bundle', async ({page}) => {
     expect((await downloadPromise).suggestedFilename()).toMatch(/\.zip$/);
 });
 
+/**
+ * The Construct spacing data is measured off the rendered cells, so the pixel
+ * of border the grid option draws on every side used to be measured with them
+ */
+test('the construct export measures the same with the grid on', async ({page}) => {
+    // the clipboard is written through a textarea that is gone by the time a
+    // test could read it, so the copy itself is what gets caught
+    await page.addInitScript(() => {
+        window.copied = [];
+        document.execCommand = () => {
+            window.copied.push(document.activeElement?.value);
+            return true;
+        };
+    });
+
+    const exportConstruct = async () => {
+        const before = await page.evaluate(() => window.copied.length);
+        await page.click('#dropdownMenuButton1');
+        await page.click('a:has-text("Construct 3")');
+        await expect.poll(() => page.evaluate(() => window.copied.length)).toBe(before + 1);
+        return page.evaluate(() => window.copied.at(-1));
+    };
+
+    await loadFixtureFont(page);
+    const spacing = await exportConstruct();
+    expect(spacing).toContain('[');
+
+    await page.check('#showGrid');
+    await expect(page.locator('#preview .cell').first()).toHaveCSS('border-top-width', '1px');
+
+    expect(await exportConstruct()).toBe(spacing);
+    // and the option the user turned on survives the export
+    await expect(page.locator('#showGrid')).toBeChecked();
+    await expect(page.locator('#preview .cell').first()).toHaveCSS('border-top-width', '1px');
+});
+
 test('kaplay export copies code and shows a toast', async ({page}) => {
     await loadFixtureFont(page);
     await page.click('#dropdownMenuButton1');
@@ -255,7 +291,7 @@ test('state survives a reload via the URL', async ({page}) => {
 /**
  * Embedded in an iframe the query string is not ours to keep, so the state is
  * mirrored into localStorage. It is never applied behind the user's back though,
- * the "Last session" link is what brings it back
+ * the "Restore last session" link is what brings it back
  */
 test('a saved session comes back only when it is asked for', async ({page}) => {
     await loadFixtureFont(page);

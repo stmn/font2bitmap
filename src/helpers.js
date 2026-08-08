@@ -233,7 +233,7 @@ export const clearStoredFontFile = async () => {
 }
 
 /**
- * Keep the bytes of an uploaded font, so "Last session" can bring it back.
+ * Keep the bytes of an uploaded font, so "Restore last session" can bring it back.
  * Silent on failure, exactly like the localStorage helpers: the session simply
  * comes back without its font
  * @param file the File the user picked or dropped

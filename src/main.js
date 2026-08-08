@@ -57,7 +57,7 @@ const optionsStyles = {
     showGrid: {
         // the cell borders draw the export grid, which the sample has none of
         gridOnly: true,
-        cellStyles: () => `border: 1px solid #fff`,
+        cellStyles: () => `border: 1px solid #fff;`,
     },
     centered: {
         // the sample keeps this one: without fixed cells it decides nothing
@@ -665,14 +665,19 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
-     * Run a callback with the character grid on screen, then put the preview
-     * back the way the user left it. Anything measuring or capturing #preview
-     * needs this, a hidden element has no size and captures blank
+     * Run a callback with the character grid on screen and its cell borders
+     * off, then put the preview back the way the user left it. Anything
+     * measuring or capturing #preview needs both: a hidden element has no size
+     * and captures blank, and the grid borders are a pixel of white on every
+     * side of every cell, which lands in the capture and in the measurements
      * @returns {Promise<*>}
      */
     async withBitmapPreview(callback) {
         const previewMode = this.previewMode;
+        const options = this.unproxy(this.options);
+
         this.previewMode = 'bitmap';
+        this.options.showGrid = false;
 
         await this.$nextTick();
 
@@ -680,6 +685,7 @@ Alpine.data('converter', (a) => ({
             return await callback();
         } finally {
             this.previewMode = previewMode;
+            this.options = options;
         }
     },
 
@@ -689,9 +695,6 @@ Alpine.data('converter', (a) => ({
      */
     async renderPng() {
         const body = document.querySelector('body');
-        const options = this.unproxy(this.options);
-
-        this.options.showGrid = false;
         body.classList.add('downloading');
 
         try {
@@ -701,7 +704,6 @@ Alpine.data('converter', (a) => ({
             ));
         } finally {
             body.classList.remove('downloading');
-            this.options = options;
         }
     },
 

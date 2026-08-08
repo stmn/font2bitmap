@@ -137,6 +137,9 @@
 
         #previewTabs .nav-link {
             border: 0;
+            /* Bootstrap hangs its tabs a pixel over their pane, which only
+               shows once the pane has a background of its own */
+            margin-bottom: 0;
             /* square at the bottom, where the tab meets the preview */
             border-radius: 5px 5px 0 0;
             padding: 2px 14px;

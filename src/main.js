@@ -1,7 +1,7 @@
 import Alpine from "alpinejs";
 import download from "downloadjs"
 import * as htmlToImage from 'html-to-image'
-import {isValidURL} from "./helpers";
+import {isValidURL, parseFontFaces} from "./helpers";
 import exports from "./exports";
 import Toastify from 'toastify-js'
 import "toastify-js/src/toastify.css"
@@ -127,33 +127,29 @@ Alpine.data('converter', (a) => ({
         this.loading = true;
         this.error = false;
 
-        let fonts = []
-
+        let response;
         try {
-            let response = (await fetch(url).catch((e) => {
-                this.error = true;
-                this.loading = false;
-            }));
-
-            if (!response.ok) {
-                this.error = true;
-                this.loading = false;
-                return;
-            }
-
-            (await response.text()).replace(/@font-face\s*{[^}]*}/g, (css) => {
-                const url = css.match(/url\(([^)]+)\)/)?.[1];
-                const name = css.match(/font-family:\s*['"]?([^'";]+)['"]?/)?.[1];
-                const weight = css.match(/font-weight:\s*['"]?([^'";]+)['"]?/)?.[1];
-                const style = css.match(/font-style:\s*['"]?([^'";]+)['"]?/)?.[1];
-
-                fonts.push({url, name, weight, style, css})
-            });
-
-            if (!fonts.length) {
-                throw new Error('No fonts found');
-            }
+            response = await fetch(url);
         } catch (e) {
+            this.error = true;
+            this.loading = false;
+            return;
+        }
+
+        if (!response.ok) {
+            this.error = true;
+            this.loading = false;
+            return;
+        }
+
+        let fonts = [];
+        try {
+            fonts = parseFontFaces(await response.text());
+        } catch (e) {
+            fonts = [];
+        }
+
+        if (!fonts.length) {
             fonts = [{
                 url: url,
                 weight: 400,
@@ -164,7 +160,7 @@ Alpine.data('converter', (a) => ({
         }
 
         this.fonts = fonts;
-        this.fontIndex = fonts.length > 0 ? 0 : null;
+        this.fontIndex = 0;
         this.loading = false;
     },
 

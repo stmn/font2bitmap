@@ -20,6 +20,20 @@ export const toClipboard = (text) => {
     toast("Copied to clipboard!");
 }
 
+export const parseFontFaces = (cssText) => {
+    const fonts = [];
+    cssText.replace(/@font-face\s*{[^}]*}/g, (css) => {
+        fonts.push({
+            url: css.match(/url\(([^)]+)\)/)?.[1],
+            name: css.match(/font-family:\s*['"]?([^'";]+)['"]?/)?.[1],
+            weight: css.match(/font-weight:\s*['"]?([^'";]+)['"]?/)?.[1],
+            style: css.match(/font-style:\s*['"]?([^'";]+)['"]?/)?.[1],
+            css: css,
+        });
+    });
+    return fonts;
+}
+
 export const isValidURL = (string) => {
     let url;
     try {

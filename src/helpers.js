@@ -44,6 +44,16 @@ export const outlineShadow = (width, color) => {
     return shadows.join(', ');
 }
 
+export const serializeState = (state) => encodeURIComponent(JSON.stringify(state));
+
+export const deserializeState = (raw) => {
+    try {
+        return JSON.parse(decodeURIComponent(raw));
+    } catch (e) {
+        return null;
+    }
+}
+
 export const isValidURL = (string) => {
     let url;
     try {

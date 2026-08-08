@@ -1,7 +1,7 @@
 import Alpine from "alpinejs";
 import download from "downloadjs"
 import * as htmlToImage from 'html-to-image'
-import {isValidURL, outlineShadow, parseFontFaces, toast} from "./helpers";
+import {deserializeState, isValidURL, outlineShadow, parseFontFaces, serializeState, toast} from "./helpers";
 import exports from "./exports";
 import "toastify-js/src/toastify.css"
 
@@ -34,6 +34,8 @@ const characterPresets = {
     'Polish': "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ",
     'Latin-1': "¡¢£¥§©«®°±²³µ¶·»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ",
 };
+
+const PERSISTED_KEYS = ['perRow', 'gridWidth', 'gridHeight', 'fontSize', 'exportScale', 'characters', 'sampleText', 'fontUrl', 'inputType', 'options', 'colors', 'outlineWidth'];
 
 window.googleFonts = Alpine.reactive({items: []})
 
@@ -84,6 +86,8 @@ Alpine.data('converter', (a) => ({
     },
 
     init() {
+        this.restoreState();
+
         this.loadURL(this.fontUrl);
 
         this.$watch('fontUrl', async () => {
@@ -97,6 +101,46 @@ Alpine.data('converter', (a) => ({
                 this.options.subpixel = false;
             }
         })
+
+        PERSISTED_KEYS.forEach((key) => {
+            this.$watch(key, () => this.persistState());
+        });
+    },
+
+    /**
+     * Restore persisted configuration from the query string
+     */
+    restoreState() {
+        const raw = new URLSearchParams(window.location.search).get('s');
+        const saved = raw ? deserializeState(raw) : null;
+        if (!saved) {
+            return;
+        }
+        PERSISTED_KEYS.forEach((key) => {
+            if (saved[key] === undefined) {
+                return;
+            }
+            if (typeof this[key] === 'object' && this[key] !== null) {
+                this[key] = {...this[key], ...saved[key]};
+            } else {
+                this[key] = saved[key];
+            }
+        });
+    },
+
+    /**
+     * Write the current configuration into the query string
+     */
+    persistState() {
+        const state = {};
+        PERSISTED_KEYS.forEach((key) => {
+            state[key] = this.unproxy(this[key]);
+        });
+        if (String(state.fontUrl).startsWith('blob:')) {
+            delete state.fontUrl;
+            delete state.inputType;
+        }
+        window.history.replaceState(null, '', '?s=' + serializeState(state));
     },
 
     /**

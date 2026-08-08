@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {parseFontFaces, isValidURL, outlineShadow} from '../../src/helpers.js';
+import {parseFontFaces, isValidURL, outlineShadow, serializeState, deserializeState} from '../../src/helpers.js';
 
 describe('parseFontFaces', () => {
     it('parses @font-face blocks', () => {
@@ -46,5 +46,17 @@ describe('outlineShadow', () => {
 
     it('scales with width', () => {
         expect(outlineShadow(2, '#000').split(', ')).toHaveLength(25);
+    });
+});
+
+describe('state serialization', () => {
+    it('round-trips a state object', () => {
+        const state = {perRow: 19, characters: 'ą"\\ć', options: {outline: true}};
+        expect(deserializeState(serializeState(state))).toEqual(state);
+    });
+
+    it('returns null for garbage', () => {
+        expect(deserializeState('not%valid%json')).toBeNull();
+        expect(deserializeState('')).toBeNull();
     });
 });

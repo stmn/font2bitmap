@@ -1,9 +1,8 @@
 import Alpine from "alpinejs";
 import download from "downloadjs"
 import * as htmlToImage from 'html-to-image'
-import {isValidURL, outlineShadow, parseFontFaces} from "./helpers";
+import {isValidURL, outlineShadow, parseFontFaces, toast} from "./helpers";
 import exports from "./exports";
-import Toastify from 'toastify-js'
 import "toastify-js/src/toastify.css"
 
 
@@ -266,37 +265,41 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
-     * Download bitmap image
+     * Render the preview to a PNG data URL (grid hidden, page chrome stripped)
+     * @returns {Promise<string>}
      */
-    download() {
+    async renderPng() {
         const body = document.querySelector('body');
         const options = this.unproxy(this.options);
 
         this.options.showGrid = false;
         body.classList.add('downloading');
 
-        setTimeout(() => {
-            htmlToImage.toPng(
-                document.getElementById('preview'), {pixelRatio: parseInt(this.exportScale) || 1}
-            )
-                .then((dataUrl) => {
-                    download(dataUrl, this.font().name + '.png');
-                    body.classList.remove('downloading');
-                    this.options = options;
-                })
-                .catch((error) => {
-                    console.error('oops, something went wrong!', error)
-                    body.classList.remove('downloading');
-                    this.options = options;
-                });
-        }, 1);
+        await this.$nextTick();
 
-        Toastify({
-            text: "Downloading!",
-            duration: 2000,
-            gravity: "bottom",
-            position: "right",
-        }).showToast();
+        try {
+            return await htmlToImage.toPng(
+                document.getElementById('preview'),
+                {pixelRatio: parseInt(this.exportScale) || 1}
+            );
+        } finally {
+            body.classList.remove('downloading');
+            this.options = options;
+        }
+    },
+
+    /**
+     * Download bitmap image
+     */
+    async download() {
+        try {
+            const dataUrl = await this.renderPng();
+            download(dataUrl, this.font().name + '.png');
+            toast("Downloading!");
+        } catch (error) {
+            console.error('oops, something went wrong!', error);
+            toast("Export failed!");
+        }
     },
 
     exportCode(name) {

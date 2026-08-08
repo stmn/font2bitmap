@@ -17,6 +17,7 @@
     "alpinejs": "^3.11.1",
     "downloadjs": "^1.4.7",
     "html-to-image": "^1.11.11",
+    "jszip": "^3.10.1",
     "toastify-js": "^1.12.0"
   }
 }

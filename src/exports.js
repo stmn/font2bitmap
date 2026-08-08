@@ -1,4 +1,5 @@
 import download from "downloadjs";
+import JSZip from "jszip";
 import {toClipboard, toast} from "./helpers";
 
 /**
@@ -227,6 +228,19 @@ export const serializeBMFontText = (bmfont) => {
 }
 
 export default {
+    'bundle': async (data) => {
+        const bmfont = await buildBMFont(data);
+        const name = data.font().name;
+        const dataUrl = await data.renderPng();
+
+        const zip = new JSZip();
+        zip.file(name + '.png', dataUrl.split(',')[1], {base64: true});
+        zip.file(name + '.fnt', serializeBMFontText(bmfont));
+        zip.file(name + '.json', JSON.stringify(bmfont, null, 2));
+
+        download(await zip.generateAsync({type: 'blob'}), name + '.zip', 'application/zip');
+        toast("Bundle downloaded!");
+    },
     'bmfontJson': async (data) => {
         const bmfont = await buildBMFont(data);
         download(JSON.stringify(bmfont, null, 2), data.font().name + '.json', 'application/json');

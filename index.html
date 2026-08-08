@@ -230,6 +230,7 @@
                 Export
             </button>
             <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+                <li><a class="dropdown-item" @click="exportCode('bundle')">ZIP bundle (PNG + BMFont)</a></li>
                 <li><a class="dropdown-item" @click="exportCode('bmfontJson')">BMFont (JSON)</a></li>
                 <li><a class="dropdown-item" @click="exportCode('bmfontText')">BMFont (.fnt)</a></li>
                 <li><hr class="dropdown-divider"></li>

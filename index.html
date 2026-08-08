@@ -189,6 +189,9 @@
                 Export
             </button>
             <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+                <li><a class="dropdown-item" @click="exportCode('bmfontJson')">BMFont (JSON)</a></li>
+                <li><a class="dropdown-item" @click="exportCode('bmfontText')">BMFont (.fnt)</a></li>
+                <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" @click="exportCode('construct')">Construct 3</a></li>
                 <li><a class="dropdown-item" @click="exportCode('kaboom')">KaboomJS</a></li>
             </ul>

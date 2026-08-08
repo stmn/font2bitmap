@@ -215,7 +215,7 @@ Alpine.data('converter', (a) => ({
         }
 
         // Prepare HTML
-        let letters = this.characters.split("");
+        let letters = Array.from(this.characters);
         while (letters.length) {
             html += `<div class="line" style="${rowStyles}">`;
             for (let i = 0; i < this.perRow && letters.length; i++) {

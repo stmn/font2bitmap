@@ -1,5 +1,14 @@
 import Toastify from "toastify-js";
 
+export const toast = (text) => {
+    Toastify({
+        text: text,
+        duration: 2000,
+        gravity: "bottom",
+        position: "right",
+    }).showToast();
+}
+
 export const toClipboard = (text) => {
     const el = document.createElement('textarea');
     el.value = text;
@@ -8,12 +17,7 @@ export const toClipboard = (text) => {
     document.execCommand('copy');
     document.body.removeChild(el);
 
-    Toastify({
-        text: "Copied to clipboard!",
-        duration: 2000,
-        gravity: "bottom",
-        position: "right",
-    }).showToast();
+    toast("Copied to clipboard!");
 }
 
 export const isValidURL = (string) => {

@@ -259,7 +259,7 @@ export default {
 
         await data.$nextTick()
 
-        document.querySelectorAll('.cell').forEach(cell => {
+        document.querySelectorAll('#preview .cell').forEach(cell => {
             let found = -1;
             for (let i = 0; i < spacingData.length; i++) {
                 let width = spacingData[i][0];

@@ -11,9 +11,11 @@ import {
     parseFontFaces,
     PERSISTED_KEYS,
     positiveInt,
+    readStoredState,
     sanitizeState,
     serializeState,
-    toast
+    toast,
+    writeStoredState
 } from "./helpers";
 import exports from "./exports";
 import "toastify-js/src/toastify.css"
@@ -90,7 +92,7 @@ Alpine.data('converter', (a) => ({
     previewMode: 'bitmap', // bitmap or sample
     glyphsLoading: false,
 
-    inputType: 'fontUrl', // fontUrl or file
+    inputType: 'fontUrl', // fontUrl, file or lastSession
     fontUrl: 'https://fonts.gstatic.com/s/pressstart2p/v14/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2',
     file: null,
 
@@ -115,6 +117,7 @@ Alpine.data('converter', (a) => ({
 
     restoredFontIndex: null,
     persistTimeout: null,
+    savedSession: null,
 
     fontsList() {
         return googleFonts.items.map((font) => {
@@ -126,6 +129,9 @@ Alpine.data('converter', (a) => ({
     },
 
     init() {
+        // read before anything of this session can overwrite it
+        this.savedSession = this.readSavedSession();
+
         this.restoreState();
 
         this.loadURL(this.fontUrl);
@@ -156,13 +162,56 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
-     * Restore persisted configuration from the query string
+     * Configuration from a share link. Storage is deliberately not read here,
+     * a previous session only comes back when the user asks for it
      */
     restoreState() {
         const raw = new URLSearchParams(window.location.search).get('s');
-        const saved = raw ? deserializeState(raw) : null;
 
-        Object.entries(sanitizeState(saved, this)).forEach(([key, value]) => {
+        this.applyState(sanitizeState(raw ? deserializeState(raw) : null, this));
+    },
+
+    /**
+     * Snapshot the previous session left in storage, or null. It has to be read
+     * before the first write of this session, which would overwrite it
+     * @returns {Object|null}
+     */
+    readSavedSession() {
+        const raw = readStoredState();
+        const saved = sanitizeState(raw ? deserializeState(raw) : null, this);
+
+        return Object.keys(saved).length ? saved : null;
+    },
+
+    hasSavedSession() {
+        return Boolean(this.savedSession);
+    },
+
+    /**
+     * Bring the previous session back. The radio stays on "Last session": the
+     * snapshot of a file upload carries no source at all, and any other
+     * snapshot would only put the radio back on "From URL"
+     */
+    restoreSavedSession() {
+        if (!this.savedSession) {
+            return;
+        }
+
+        const {inputType, ...state} = this.savedSession;
+        this.applyState(state);
+
+        // a changed URL reloads the font and takes the stashed variant with it,
+        // an unchanged one never does, so hand it over here
+        if (this.font()?.url === this.fontUrl) {
+            this.fontIndex = this.takeRestoredFontIndex();
+        }
+    },
+
+    /**
+     * Copy an already sanitized state object onto the component
+     */
+    applyState(state) {
+        Object.entries(state).forEach(([key, value]) => {
             if (key === 'fontIndex') {
                 // loadURL resets fontIndex once the fonts are fetched, so stash it
                 this.restoredFontIndex = value;
@@ -184,7 +233,7 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
-     * Queue a query string update, coalescing bursts of changes
+     * Queue a state write, coalescing bursts of changes
      */
     persistState() {
         clearTimeout(this.persistTimeout);
@@ -192,7 +241,7 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
-     * Write the current configuration into the query string
+     * Write the current configuration into the query string and into storage
      */
     writeState() {
         const state = {};
@@ -206,11 +255,18 @@ Alpine.data('converter', (a) => ({
             delete state.inputType;
         }
 
+        // "Last session" is a restore action, never a source to restore into
+        if (state.inputType === 'lastSession') {
+            state.inputType = 'fontUrl';
+        }
+
         try {
             window.history.replaceState(null, '', '?s=' + serializeState(state));
         } catch (e) {
             // browsers throttle replaceState, dropping one update is harmless
         }
+
+        writeStoredState(state);
     },
 
     /**

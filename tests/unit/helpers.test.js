@@ -233,6 +233,35 @@ describe('sanitizeState', () => {
         expect(sanitizeState({inputType: 'evil'}, defaults()).inputType).toBeUndefined();
     });
 
+    /**
+     * State restored from localStorage goes through the same two steps as a
+     * shared link, so anything that can write to storage gets no more trust
+     */
+    it('cleans a raw stored JSON string exactly like a shared link', () => {
+        const hostile = JSON.stringify({
+            perRow: 0,
+            outlineWidth: 500,
+            fontUrl: 'javascript:alert(1)',
+            colors: {text: 'red; background:url(x)'},
+            options: {outline: 'yes', nope: true},
+            evil: '<script>',
+        });
+
+        const clean = sanitizeState(deserializeState(hostile), defaults());
+
+        expect(clean.perRow).toBe(1);
+        expect(clean.outlineWidth).toBe(4);
+        expect(clean.fontUrl).toBeUndefined();
+        expect(clean.colors.text).toBe('#ffffff');
+        expect(clean.options).toEqual({outline: true, centered: true});
+        expect(clean.evil).toBeUndefined();
+    });
+
+    it('survives a stored string that is not state at all', () => {
+        expect(sanitizeState(deserializeState('not json'), defaults())).toEqual({});
+        expect(sanitizeState(deserializeState('"a string"'), defaults())).toEqual({});
+    });
+
     it('works without defaults for the flat keys', () => {
         expect(sanitizeState({perRow: 5, colors: {text: '#000000'}})).toEqual({perRow: 5});
     });

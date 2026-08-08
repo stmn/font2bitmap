@@ -117,6 +117,14 @@
                     From File
                 </label>
             </div>
+            <div class="form-check form-check-inline" :title="hasSavedSession() ? '' : 'No saved session yet'">
+                <input x-model="inputType" class="form-check-input" type="radio" name="inputType_lastSession"
+                       id="inputType_lastSession" value="lastSession"
+                       :disabled="!hasSavedSession()" @change="restoreSavedSession()">
+                <label class="form-check-label" for="inputType_lastSession">
+                    Last session
+                </label>
+            </div>
             <div class="form-check form-switch ms-auto">
                 <input class="form-check-input" x-model="advanced" type="checkbox" role="switch" id="advanced">
                 <label class="form-check-label" for="advanced">Advanced options</label>
@@ -130,7 +138,8 @@
             </div>
         </div>
     </div>
-    <div x-show="inputType==='fontUrl'" class="row">
+    <!-- "Last session" restores a URL font, so it shows the URL input as well -->
+    <div x-show="inputType!=='file'" class="row">
         <div class="col">
             <div class="form-floating mb-3">
                 <input type="text" x-model.debounce.100ms="fontUrl" list="fontsList"

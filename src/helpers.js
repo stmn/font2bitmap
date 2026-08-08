@@ -117,6 +117,30 @@ export const loadFontCodepoints = async (url) => {
 
 export const serializeState = (state) => encodeURIComponent(JSON.stringify(state));
 
+export const STATE_STORAGE_KEY = 'font2bitmap:state';
+
+/**
+ * The query string is not ours to keep when the tool is embedded in an iframe,
+ * so the state is mirrored into localStorage. Access to it throws outright in a
+ * sandboxed frame, which is no reason to lose the app
+ * @returns {string|null} raw JSON, for the same deserializeState the URL uses
+ */
+export const readStoredState = () => {
+    try {
+        return window.localStorage.getItem(STATE_STORAGE_KEY);
+    } catch (e) {
+        return null;
+    }
+}
+
+export const writeStoredState = (state) => {
+    try {
+        window.localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+        // storage denied or full, the query string still carries the state
+    }
+}
+
 export const deserializeState = (raw) => {
     // URLSearchParams already percent-decodes, so plain JSON is the normal case
     try {

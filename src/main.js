@@ -113,6 +113,7 @@ Alpine.data('converter', (a) => ({
     restoredFontIndex: null,
     persistTimeout: null,
     savedSession: null,
+    loadGeneration: 0,
 
     fontsList() {
         return googleFonts.items.map((font) => {
@@ -411,6 +412,13 @@ Alpine.data('converter', (a) => ({
             return;
         }
 
+        // Typing in the URL field starts a load per URL and a slow one can land
+        // after a newer one. Every load takes a ticket and drops out silently
+        // once it is no longer the newest, so only the last one touches
+        // loading, error, fonts and the stashed font variant
+        const generation = ++this.loadGeneration;
+        const stale = () => generation !== this.loadGeneration;
+
         this.loading = true;
         this.error = false;
 
@@ -418,8 +426,16 @@ Alpine.data('converter', (a) => ({
         try {
             response = await fetch(url);
         } catch (e) {
+            if (stale()) {
+                return;
+            }
+
             this.error = true;
             this.loading = false;
+            return;
+        }
+
+        if (stale()) {
             return;
         }
 
@@ -434,6 +450,10 @@ Alpine.data('converter', (a) => ({
             fonts = parseFontFaces(await response.text());
         } catch (e) {
             fonts = [];
+        }
+
+        if (stale()) {
+            return;
         }
 
         if (!fonts.length) {

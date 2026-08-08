@@ -325,6 +325,43 @@ test('a restored session keeps the selected font variant of a CSS URL', async ({
     expect(await page.inputValue('#floatingSelect')).toBe('1');
 });
 
+/**
+ * Every URL typed starts its own load and they are not cancelled, so a slow
+ * early one used to land last and win
+ */
+test('a slow font request cannot overwrite a newer one', async ({page}) => {
+    const slowUrl = 'http://localhost:5199/slow.css';
+    const fastUrl = 'http://localhost:5199/fast.css';
+    const face = (name) => `@font-face { font-family: '${name}'; font-style: normal; font-weight: 400; src: url(${FIXTURE_URL}); }`;
+
+    await page.route(slowUrl, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await route.fulfill({contentType: 'text/css', body: face('SlowFont')});
+    });
+    await page.route(fastUrl, (route) => route.fulfill({contentType: 'text/css', body: face('FastFont')}));
+
+    await page.goto('/');
+    await expect(page.locator('#preview .cell').first()).toBeVisible({timeout: 10000});
+
+    // past the input debounce, so the slow request is really in flight
+    await page.fill('#font', slowUrl);
+    await page.waitForTimeout(300);
+
+    const fast = page.waitForResponse(fastUrl);
+    await page.fill('#font', fastUrl);
+    await fast;
+
+    const loadedFont = () => page.evaluate(() => document.body._x_dataStack[0].font()?.name);
+    await expect.poll(loadedFont).toBe('FastFont');
+
+    // the slow response lands here and has to be dropped on arrival
+    await page.waitForTimeout(2000);
+    expect(await loadedFont()).toBe('FastFont');
+    expect(await page.evaluate(() => document.body._x_dataStack[0].loading)).toBe(false);
+    await expect(page.locator('.alert-danger')).toHaveCount(0);
+    await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
+});
+
 test('the last session radio is disabled without a saved session', async ({page}) => {
     await page.goto('/');
     await page.evaluate(() => window.localStorage.clear());

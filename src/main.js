@@ -115,6 +115,14 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
+     * Characters actually rendered on the grid
+     * @returns {string}
+     */
+    effectiveCharacters() {
+        return this.options.removeDuplicates ? this.uniqueCharacters() : this.characters;
+    },
+
+    /**
      * Loading font from provided URL
      * @param url
      * @returns {Promise<void>}
@@ -205,13 +213,8 @@ Alpine.data('converter', (a) => ({
             }
         }
 
-        // Remove duplicate characters
-        if (this.options.removeDuplicates) {
-            this.characters = this.uniqueCharacters();
-        }
-
         // Prepare HTML
-        let letters = Array.from(this.characters);
+        let letters = Array.from(this.effectiveCharacters());
         while (letters.length) {
             html += `<div class="line" style="${rowStyles}">`;
             for (let i = 0; i < this.perRow && letters.length; i++) {

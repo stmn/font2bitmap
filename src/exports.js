@@ -30,7 +30,7 @@ const measureContext = async (data) => {
     const fontSpec = `${style} ${normalizeFontWeight(font.weight)} ${data.fontSize}px "${font.name}"`;
 
     try {
-        await document.fonts.load(fontSpec, data.characters);
+        await document.fonts.load(fontSpec, data.effectiveCharacters());
     } catch (e) {
         // keep going - measurement will use a fallback font at worst
     }
@@ -147,7 +147,7 @@ const buildBMFont = async (data) => {
 
     return buildBMFontData({
         font,
-        characters: data.characters,
+        characters: data.effectiveCharacters(),
         perRow: parseInt(data.perRow),
         gridWidth: parseInt(data.gridWidth),
         gridHeight: parseInt(data.gridHeight),
@@ -252,7 +252,7 @@ export default {
     },
     'kaboom': (data) => {
         toClipboard(
-            `loadFont("${data.font().name}", "${data.font().name.replace(/ /g, '_') + '.png'}", ${data.gridWidth}, ${data.gridHeight}, {chars: "${data.characters.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"})`
+            `loadFont("${data.font().name}", "${data.font().name.replace(/ /g, '_') + '.png'}", ${data.gridWidth}, ${data.gridHeight}, {chars: "${data.effectiveCharacters().replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"})`
         );
     },
 }

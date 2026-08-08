@@ -140,7 +140,8 @@ export const buildBMFontData = ({font, characters, perRow, gridWidth, gridHeight
  */
 const buildBMFont = async (data) => {
     const ctx = await measureContext(data);
-    const font = data.font();
+    // Same normalized weight the measuring context used, so info.bold agrees with the metrics
+    const font = {...data.font(), weight: normalizeFontWeight(data.font().weight)};
     const fontSize = parseInt(data.fontSize);
     const metrics = ctx.measureText('Hg');
 

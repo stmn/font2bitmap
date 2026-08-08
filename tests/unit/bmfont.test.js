@@ -60,6 +60,27 @@ describe('buildBMFontData', () => {
         const bmfont = buildBMFontData(baseInput());
         expect(bmfont.kernings).toEqual([]);
     });
+
+    it('derives info.bold from the weight it is given', () => {
+        const withWeight = (weight) => buildBMFontData({
+            ...baseInput(),
+            font: {name: 'Test', weight: weight, style: 'normal'},
+        }).info.bold;
+
+        expect(withWeight(400)).toBe(0);
+        expect(withWeight('700')).toBe(1);
+    });
+
+    it('reports a variable weight range as not bold once normalized', () => {
+        const withWeight = (weight) => buildBMFontData({
+            ...baseInput(),
+            font: {name: 'Test', weight: weight, style: 'normal'},
+        }).info.bold;
+
+        // A raw range would be misread as bold, which is why callers must normalize first
+        expect(withWeight('700 900')).toBe(1);
+        expect(withWeight(normalizeFontWeight('700 900'))).toBe(0);
+    });
 });
 
 describe('serializeBMFontText', () => {
@@ -85,6 +106,7 @@ describe('normalizeFontWeight', () => {
 
     it('falls back to 400 for a variable font weight range', () => {
         expect(normalizeFontWeight('100 900')).toBe(400);
+        expect(normalizeFontWeight('700 900')).toBe(400);
     });
 
     it('maps keywords and missing values', () => {

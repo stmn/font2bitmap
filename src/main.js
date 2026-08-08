@@ -91,7 +91,7 @@ Alpine.data('converter', (a) => ({
     previewMode: 'bitmap', // bitmap or sample
     glyphsLoading: false,
 
-    inputType: 'fontUrl', // fontUrl, file or lastSession
+    inputType: 'fontUrl', // fontUrl or file
     fontUrl: 'https://fonts.gstatic.com/s/pressstart2p/v14/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2',
     file: null,
 
@@ -152,6 +152,8 @@ Alpine.data('converter', (a) => ({
 
         this.$watch('fontUrl', async () => {
             if (isValidURL(this.fontUrl)) {
+                // whatever upload was restored is not what is loaded any more
+                this.restoredFontName = null;
                 await this.loadURL(this.fontUrl);
             }
         })
@@ -202,10 +204,9 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
-     * Bring the previous session back. For a URL session the radio stays on
-     * "Last session", putting it back on "From URL" would say nothing extra. A
-     * restored upload does move it to "From File", which is where its font
-     * came from and where the name of the restored file is shown
+     * Bring the previous session back. The radio ends up on the source the
+     * font came back from: the upload of that session if its bytes are still
+     * around, the URL that is loaded in every other case
      * @returns {Promise<void>}
      */
     async restoreSavedSession() {
@@ -217,6 +218,7 @@ Alpine.data('converter', (a) => ({
         const previousUrl = this.fontUrl;
 
         this.applyState(state);
+        this.inputType = 'fontUrl';
 
         // an upload only comes back if the session really had one: the radio
         // can be moved to "From File" without ever picking a file
@@ -310,11 +312,6 @@ Alpine.data('converter', (a) => ({
             delete state.fontUrl;
         } else {
             delete state.fontFile;
-        }
-
-        // "Last session" is a restore action, never a source to restore into
-        if (state.inputType === 'lastSession') {
-            state.inputType = 'fontUrl';
         }
 
         try {

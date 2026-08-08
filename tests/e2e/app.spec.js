@@ -255,7 +255,7 @@ test('state survives a reload via the URL', async ({page}) => {
 /**
  * Embedded in an iframe the query string is not ours to keep, so the state is
  * mirrored into localStorage. It is never applied behind the user's back though,
- * the "Last session" radio is what brings it back
+ * the "Last session" link is what brings it back
  */
 test('a saved session comes back only when it is asked for', async ({page}) => {
     await loadFixtureFont(page);
@@ -267,23 +267,19 @@ test('a saved session comes back only when it is asked for', async ({page}) => {
     await page.goto('/');
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
     await expect(page.locator('#perRow')).toHaveValue('19');
-    await expect(page.locator('#inputType_lastSession')).toBeEnabled();
+    await expect(page.locator('#lastSession')).not.toHaveClass(/disabled/);
 
-    await page.check('#inputType_lastSession');
+    await page.click('#lastSession');
     await expect(page.locator('#characters')).toHaveValue('XYZ');
     await expect(page.locator('#perRow')).toHaveValue('5');
     await expect(page.locator('#font')).toHaveValue(FIXTURE_URL);
-    // a restored session is a URL font, so the URL input stays on screen
+    // this session came back on its URL, so that is what the radio says and
+    // the URL input stays on screen
+    await expect(page.locator('#inputType_fontUrl')).toBeChecked();
     await expect(page.locator('#font')).toBeVisible();
     await expect(page.locator('#preview .cell')).toHaveCount(3);
-    // the radio stays where the user left it
-    await expect(page.locator('#inputType_lastSession')).toBeChecked();
 
-    // "lastSession" is an action, persisting it would make the next restore
-    // point at itself
     await waitForPersistedState(page, [['"characters":"XYZ"'], ['"inputType":"fontUrl"']]);
-    expect(await page.evaluate(() => window.localStorage.getItem('font2bitmap:state')))
-        .not.toContain('lastSession');
 });
 
 /**
@@ -323,7 +319,7 @@ test('a saved session brings an uploaded font file back', async ({page}) => {
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
 
     // click, not check: the restore moves the radio on to "From File"
-    await page.click('#inputType_lastSession');
+    await page.click('#lastSession');
 
     await expect(page.locator('#inputType_file')).toBeChecked();
     // a file input cannot be filled from script, the hint says what is loaded
@@ -358,7 +354,7 @@ test('a session whose uploaded font is gone restores without it', async ({page})
     await page.goto('/');
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
 
-    await page.click('#inputType_lastSession');
+    await page.click('#lastSession');
 
     await expect(page.locator('.toastify')).toContainText('Saved font file is no longer available');
     // everything but the font still comes back, on the font already loaded
@@ -395,7 +391,7 @@ test('a stored font from another upload is not restored in its place', async ({p
     await page.goto('/');
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
 
-    await page.click('#inputType_lastSession');
+    await page.click('#lastSession');
 
     await expect(page.locator('.toastify')).toContainText('Saved font file is no longer available');
     await expect(page.locator('#characters')).toHaveValue('XYZ');
@@ -412,16 +408,16 @@ test('restoring a session twice is not poisoned by the first restore', async ({p
     await waitForPersistedState(page, [['"characters":"XYZ"'], ['"showGrid":false']]);
 
     await page.goto('/');
-    await page.check('#inputType_lastSession');
+    await page.click('#lastSession');
     await expect(page.locator('#characters')).toHaveValue('XYZ');
     await expect(page.locator('#showGrid')).not.toBeChecked();
 
     await page.check('#showGrid');
     await page.fill('#characters', 'Q');
 
-    // back to the very same snapshot, which the toggle must not have changed
-    await page.check('#inputType_fontUrl');
-    await page.check('#inputType_lastSession');
+    // back to the very same snapshot, which the toggle must not have changed.
+    // The link restores on every click, there is no mode to leave first
+    await page.click('#lastSession');
     await expect(page.locator('#characters')).toHaveValue('XYZ');
     await expect(page.locator('#showGrid')).not.toBeChecked();
 });
@@ -460,7 +456,7 @@ test('a restored session keeps the selected font variant of a CSS URL', async ({
     // same CSS URL as the one already in the input, so nothing reloads
     await loadTwoVariants();
 
-    await page.check('#inputType_lastSession');
+    await page.click('#lastSession');
     // the restore is one synchronous step, so the variant is settled as soon
     // as the characters are - read it once, retrying would hide a late reload
     await expect(page.locator('#characters')).toHaveValue('XYZ');
@@ -563,14 +559,16 @@ test('going back to the loaded font drops a slow request', async ({page}) => {
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
 });
 
-test('the last session radio is disabled without a saved session', async ({page}) => {
+test('the last session link is disabled without a saved session', async ({page}) => {
     await page.goto('/');
     await page.evaluate(() => window.localStorage.clear());
     await page.reload();
 
-    const radio = page.locator('#inputType_lastSession');
-    await expect(radio).toBeDisabled();
-    await expect(page.locator('#inputType_lastSession').locator('..')).toHaveAttribute('title', 'No saved session yet');
+    const link = page.locator('#lastSession');
+    await expect(link).toHaveClass(/disabled/);
+    await expect(link).toHaveAttribute('aria-disabled', 'true');
+    await expect(link).toHaveCSS('pointer-events', 'none');
+    await expect(link.locator('..')).toHaveAttribute('title', 'No saved session yet');
 });
 
 test('the sample text preview replaces the grid and can be edited', async ({page}) => {

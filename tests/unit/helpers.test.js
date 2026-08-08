@@ -384,10 +384,6 @@ describe('sanitizeState', () => {
         expect(sanitizeState({inputType: 'evil'}, defaults()).inputType).toBeUndefined();
     });
 
-    it('rejects lastSession, which is an action and not a source', () => {
-        expect(sanitizeState({inputType: 'lastSession'}, defaults()).inputType).toBeUndefined();
-    });
-
     /**
      * State restored from localStorage goes through the same two steps as a
      * shared link, so anything that can write to storage gets no more trust

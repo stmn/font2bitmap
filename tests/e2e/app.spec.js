@@ -6,6 +6,27 @@ const FIXTURE_URL = 'http://localhost:5199/fonts/PressStart2P-Regular.woff2';
 const ASCII_COUNT = 95;
 
 /**
+ * A stylesheet naming one variant of the fixture font, so a served URL can be
+ * told apart by the name the app ends up with
+ */
+const cssFace = (name, {style = 'normal', weight = 400} = {}) =>
+    `@font-face { font-family: '${name}'; font-style: ${style}; font-weight: ${weight}; src: url(${FIXTURE_URL}); }`;
+
+/**
+ * Serve a stylesheet, optionally after a delay, so a slow load can be raced
+ * against a newer one
+ */
+const routeCssFont = (page, url, name, delay = 0) => page.route(url, async (route) => {
+    if (delay) {
+        await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+
+    await route.fulfill({contentType: 'text/css', body: cssFace(name)});
+});
+
+const loadedFontName = (page) => page.evaluate(() => document.body._x_dataStack[0].font()?.name);
+
+/**
  * The app loads a remote font on every page load. Serve the committed fixture
  * instead, so no test depends on the network and every page starts in the same
  * loaded, error free state.
@@ -292,8 +313,7 @@ test('a restored session keeps the selected font variant of a CSS URL', async ({
     const cssUrl = 'http://localhost:5199/multi.css';
     await page.route(cssUrl, (route) => route.fulfill({
         contentType: 'text/css',
-        body: `@font-face { font-family: 'Multi'; font-style: normal; font-weight: 400; src: url(${FIXTURE_URL}); }`
-            + `@font-face { font-family: 'Multi'; font-style: italic; font-weight: 700; src: url(${FIXTURE_URL}); }`,
+        body: cssFace('Multi') + cssFace('Multi', {style: 'italic', weight: 700}),
     }));
 
     /**
@@ -332,13 +352,9 @@ test('a restored session keeps the selected font variant of a CSS URL', async ({
 test('a slow font request cannot overwrite a newer one', async ({page}) => {
     const slowUrl = 'http://localhost:5199/slow.css';
     const fastUrl = 'http://localhost:5199/fast.css';
-    const face = (name) => `@font-face { font-family: '${name}'; font-style: normal; font-weight: 400; src: url(${FIXTURE_URL}); }`;
 
-    await page.route(slowUrl, async (route) => {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        await route.fulfill({contentType: 'text/css', body: face('SlowFont')});
-    });
-    await page.route(fastUrl, (route) => route.fulfill({contentType: 'text/css', body: face('FastFont')}));
+    await routeCssFont(page, slowUrl, 'SlowFont', 1500);
+    await routeCssFont(page, fastUrl, 'FastFont');
 
     await page.goto('/');
     await expect(page.locator('#preview .cell').first()).toBeVisible({timeout: 10000});
@@ -348,17 +364,41 @@ test('a slow font request cannot overwrite a newer one', async ({page}) => {
     await page.waitForTimeout(300);
 
     const fast = page.waitForResponse(fastUrl);
+    const slow = page.waitForResponse(slowUrl);
     await page.fill('#font', fastUrl);
     await fast;
+    await expect.poll(() => loadedFontName(page)).toBe('FastFont');
 
-    const loadedFont = () => page.evaluate(() => document.body._x_dataStack[0].font()?.name);
-    await expect.poll(loadedFont).toBe('FastFont');
-
-    // the slow response lands here and has to be dropped on arrival
-    await page.waitForTimeout(2000);
-    expect(await loadedFont()).toBe('FastFont');
+    // the slow response has to be dropped when it finally lands
+    await slow;
+    expect(await loadedFontName(page)).toBe('FastFont');
     expect(await page.evaluate(() => document.body._x_dataStack[0].loading)).toBe(false);
     await expect(page.locator('.alert-danger')).toHaveCount(0);
+    await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
+});
+
+/**
+ * Asking for the font that is already loaded is still a newer intent than a
+ * load in flight, so it has to invalidate it
+ */
+test('going back to the loaded font drops a slow request', async ({page}) => {
+    const slowUrl = 'http://localhost:5199/slow-back.css';
+    await routeCssFont(page, slowUrl, 'SlowFont', 1500);
+
+    // a bare font binary is loaded under its own URL, which is what makes
+    // retyping it hit the "already loaded" shortcut
+    await loadFixtureFont(page);
+    expect(await loadedFontName(page)).toBe('font2bitmap');
+
+    const slow = page.waitForResponse(slowUrl);
+    await page.fill('#font', slowUrl);
+    await page.waitForTimeout(300);
+    await page.fill('#font', FIXTURE_URL);
+
+    await slow;
+    expect(await loadedFontName(page)).toBe('font2bitmap');
+    // the invalidated load will not clear the spinner it turned on
+    expect(await page.evaluate(() => document.body._x_dataStack[0].loading)).toBe(false);
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
 });
 

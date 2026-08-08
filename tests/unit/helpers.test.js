@@ -158,7 +158,7 @@ describe('stored state', () => {
 });
 
 describe('glyphsLoadedMessage', () => {
-    it('reports what was loaded, without claiming an append', () => {
+    it('formats the glyph count message', () => {
         expect(glyphsLoadedMessage('ABC')).toBe('3 glyphs loaded!');
     });
 

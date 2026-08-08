@@ -103,6 +103,7 @@ export const SLOW_CHARACTERS = 2000;
 /**
  * What to tell the user after reading a font. Counted by codepoint, so a glyph
  * made of a surrogate pair counts once
+ * @param characters the character set just loaded
  * @returns {string}
  */
 export const glyphsLoadedMessage = (characters) => {

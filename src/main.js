@@ -408,16 +408,21 @@ Alpine.data('converter', (a) => ({
      * @returns {Promise<void>}
      */
     async loadURL(url = null) {
-        if (this.font()?.url === url) {
-            return;
-        }
-
         // Typing in the URL field starts a load per URL and a slow one can land
         // after a newer one. Every load takes a ticket and drops out silently
         // once it is no longer the newest, so only the last one touches
-        // loading, error, fonts and the stashed font variant
+        // loading, error, fonts and the stashed font variant. The ticket is
+        // taken first: asking for the font that is already loaded is still a
+        // newer intent than whatever is in flight
         const generation = ++this.loadGeneration;
         const stale = () => generation !== this.loadGeneration;
+
+        if (this.font()?.url === url) {
+            // the load just invalidated will bail out silently, so the spinner
+            // it turned on has to be cleared here
+            this.loading = false;
+            return;
+        }
 
         this.loading = true;
         this.error = false;

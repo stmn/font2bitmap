@@ -672,6 +672,46 @@ test('the advanced options switch hides the extra controls', async ({page}) => {
     await expect(page.locator('#outlineWidth')).toBeHidden();
 });
 
+/**
+ * Bootstrap's small button and select are a few pixels shorter than a colour
+ * swatch, which left the row of advanced controls visibly ragged
+ */
+test('every control in the advanced row is the same height', async ({page}) => {
+    await loadFixtureFont(page);
+    await page.check('#advanced');
+    await page.check('#outline');
+
+    const heights = await page.locator('#advancedControls')
+        .evaluate((row) => [...row.querySelectorAll('input, select, button')]
+            .map((control) => control.getBoundingClientRect().height));
+
+    // both swatches, the outline width, the background swatch, Transparent and
+    // the export scale
+    expect(heights).toHaveLength(6);
+    expect([...new Set(heights)]).toEqual([38]);
+});
+
+/**
+ * Switching to the sample only changes what is inside the frame, so both
+ * previews have to wear the same one
+ */
+test('both previews wear the same frame', async ({page}) => {
+    await loadFixtureFont(page);
+    await page.check('#advanced');
+
+    const frame = (selector) => page.locator(selector).evaluate((el) => {
+        const style = getComputedStyle(el);
+        return [style.border, style.borderRadius, style.padding].join(' | ');
+    });
+
+    const bitmap = await frame('#preview');
+    expect(bitmap).toContain('5px solid');
+
+    await page.click('#previewModeSample');
+    await expect(page.locator('#sample-preview')).toBeVisible();
+    expect(await frame('#sample-preview')).toBe(bitmap);
+});
+
 test('rapid x-show toggles do not throw', async ({page}) => {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));

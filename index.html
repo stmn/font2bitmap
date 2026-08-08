@@ -15,16 +15,15 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        #preview {
+        /* One frame for both previews, so switching between them only changes
+           what is inside it. The sample is never captured in the export, it
+           lives outside the #preview the exporters read */
+        #preview,
+        #sample-preview {
             border: 5px solid #222C42;
             color: #fff;
             border-radius: 10px;
             padding: 15px;
-            -webkit-font-smoothing: none;
-        }
-
-        /* Preview only, never captured in the export (it lives outside #preview) */
-        #sample-preview {
             -webkit-font-smoothing: none;
         }
 
@@ -308,7 +307,11 @@
     </div>
 
     <div class="card p-2 px-3 border-0 mt-2" x-show="advanced">
-        <div class="d-flex align-items-center gap-3 flex-wrap form-control-sm">
+        <!-- No "sm" variants on the controls of this row: the small button and
+             select are a few pixels shorter than a colour swatch each, which
+             left the row ragged. Standard controls are all 38px tall.
+             form-control-sm on the wrapper only shrinks the labels -->
+        <div class="d-flex align-items-center gap-3 flex-wrap form-control-sm" id="advancedControls">
             <div class="d-flex align-items-center gap-1">
                 <label for="colorText">Text</label>
                 <input type="color" class="form-control form-control-color" id="colorText" x-model="colors.text">
@@ -330,11 +333,11 @@
             <div class="d-flex align-items-center gap-1">
                 <label for="colorBackground">Background</label>
                 <input type="color" class="form-control form-control-color" id="colorBackground" x-model="colors.background">
-                <button class="btn btn-sm btn-outline-secondary" @click="colors.background = ''">Transparent</button>
+                <button class="btn btn-outline-secondary" @click="colors.background = ''">Transparent</button>
             </div>
             <div class="d-flex align-items-center gap-1">
                 <label for="exportScale">Export scale</label>
-                <select class="form-select form-select-sm" style="width: 80px;" id="exportScale" x-model.number="exportScale">
+                <select class="form-select" style="width: 80px;" id="exportScale" x-model.number="exportScale">
                     <option value="1">1x</option>
                     <option value="2">2x</option>
                     <option value="4">4x</option>

@@ -164,14 +164,6 @@ Alpine.data('converter', (a) => ({
             }
         })
 
-        // the mode toggle lives in the advanced section, so closing it would
-        // strand the user on a sample preview they can no longer switch back
-        this.$watch('advanced', (advanced) => {
-            if (!advanced) {
-                this.previewMode = 'bitmap';
-            }
-        })
-
         PERSISTED_KEYS.forEach((key) => {
             this.$watch(key, () => this.persistState());
         });

@@ -118,6 +118,29 @@
             color: #adb5bd;
         }
 
+        /* Tabs on the dark page, reading as the top edge of the preview frame
+           they sit on. Bootstrap draws them for a light background */
+        #previewTabs {
+            border-bottom: 0;
+        }
+
+        #previewTabs .nav-link {
+            border: 0;
+            border-radius: 8px 8px 0 0;
+            padding: 3px 14px;
+            font-size: 13px;
+            color: #adb5bd;
+        }
+
+        #previewTabs .nav-link:hover {
+            color: #fff;
+        }
+
+        #previewTabs .nav-link.active {
+            background: #222C42;
+            color: #fff;
+        }
+
         /* Bootstrap only styles disabled buttons and nav links, not plain ones */
         #lastSession.disabled {
             opacity: .5;
@@ -158,10 +181,6 @@
                    :aria-disabled="!hasSavedSession()"
                    @click.prevent="restoreSavedSession()">Last session</a>
             </span>
-            <div class="form-check form-switch ms-auto">
-                <input class="form-check-input" x-model="advanced" type="checkbox" role="switch" id="advanced">
-                <label class="form-check-label" for="advanced">Advanced options</label>
-            </div>
         </div>
     </div>
     <div x-show="inputType==='file'" class="row">
@@ -309,6 +328,14 @@
                     <label class="form-check-label" for="showGrid">Show grid</label>
                 </div>
             </div>
+            <!-- not a rendering option like the ones before it, it opens the
+                 section below - but it is a switch and this is the switch row -->
+            <div class="float-start ms-3">
+                <div class="form-check form-switch form-control-sm">
+                    <input class="form-check-input" x-model="advanced" type="checkbox" role="switch" id="advanced">
+                    <label class="form-check-label" for="advanced">More options</label>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -353,25 +380,13 @@
     </div>
 
     <!-- its own block on the page background, not buried in the white card
-         where a borderless white input is invisible. The preview mode toggle
-         sits next to it, the sample text is what it switches to -->
-    <div class="row mt-2 align-items-center" x-show="advanced">
+         where a borderless white input is invisible. What it feeds is the
+         sample tab above the preview -->
+    <div class="row mt-2" x-show="advanced">
         <div class="col">
             <div class="form-floating">
                 <input type="text" x-model="sampleText" class="form-control form-control-sm border-0" id="sampleText" placeholder="Sample">
                 <label for="sampleText">Sample text</label>
-            </div>
-        </div>
-        <!-- col-auto, not a d-flex wrapper: display utilities are !important
-             and would beat the inline display:none that x-show writes -->
-        <div class="col-auto" x-show="!loading && font() && !error">
-            <div class="btn-group btn-group-sm" role="group" aria-label="Preview mode">
-                <button type="button" id="previewModeBitmap" class="btn"
-                        :class="previewMode === 'bitmap' ? 'btn-light' : 'btn-outline-light'"
-                        @click="previewMode = 'bitmap'">Bitmap</button>
-                <button type="button" id="previewModeSample" class="btn"
-                        :class="previewMode === 'sample' ? 'btn-light' : 'btn-outline-light'"
-                        @click="previewMode = 'sample'">Sample text</button>
             </div>
         </div>
     </div>
@@ -406,6 +421,22 @@
                      rebind, which threw away the display:none of x-show as soon
                      as the font changed -->
                 <div>
+                    <!-- inside the same guard as the previews: tabs with
+                         nothing to switch between would only be noise -->
+                    <ul class="nav nav-tabs" id="previewTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button type="button" class="nav-link" id="previewModeBitmap" role="tab"
+                                    :class="previewMode === 'bitmap' ? 'active' : ''"
+                                    :aria-selected="previewMode === 'bitmap'"
+                                    @click="previewMode = 'bitmap'">Bitmap</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button type="button" class="nav-link" id="previewModeSample" role="tab"
+                                    :class="previewMode === 'sample' ? 'active' : ''"
+                                    :aria-selected="previewMode === 'sample'"
+                                    @click="previewMode = 'sample'">Sample text</button>
+                        </li>
+                    </ul>
                     <div x-show="previewMode === 'bitmap'" x-html="html" :style="previewFont()"></div>
                     <div x-show="previewMode === 'sample'" id="sample-preview" x-html="sampleHtml"
                          :style="previewFont()"></div>

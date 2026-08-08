@@ -574,18 +574,22 @@ test('the last session link is disabled without a saved session', async ({page})
 test('the sample text preview replaces the grid and can be edited', async ({page}) => {
     await loadFixtureFont(page);
 
-    // the sample text input and the mode toggle both live behind the switch
+    // the tabs are always reachable, only the text they render is behind the switch
+    await expect(page.locator('#previewModeSample')).toBeVisible();
+    await expect(page.locator('#previewModeBitmap')).toHaveClass(/active/);
     await expect(page.locator('#sampleText')).toBeHidden();
-    await expect(page.locator('#previewModeSample')).toBeHidden();
     await page.check('#advanced');
     await expect(page.locator('#sampleText')).toHaveValue('The quick brown fox jumps over the lazy dog 0123456789');
     await page.fill('#sampleText', 'Hello');
 
     await page.click('#previewModeSample');
+    await expect(page.locator('#previewModeSample')).toHaveClass(/active/);
+    await expect(page.locator('#previewModeBitmap')).not.toHaveClass(/active/);
     await expect(page.locator('#sample-preview .cell')).toHaveCount(5);
     await expect(page.locator('#preview')).toBeHidden();
 
     await page.click('#previewModeBitmap');
+    await expect(page.locator('#previewModeBitmap')).toHaveClass(/active/);
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
     await expect(page.locator('#sample-preview')).toBeHidden();
 });
@@ -611,7 +615,6 @@ test('changing the font leaves the hidden preview hidden', async ({page}) => {
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
 
     // and the other way round, the grid must not come back in sample mode
-    await page.check('#advanced');
     await page.click('#previewModeSample');
     await expect(page.locator('#preview')).toBeHidden();
 
@@ -621,22 +624,8 @@ test('changing the font leaves the hidden preview hidden', async ({page}) => {
     await expect(page.locator('#sample-preview')).toBeVisible();
 });
 
-test('closing advanced options never strands the sample preview', async ({page}) => {
-    await loadFixtureFont(page);
-    await page.check('#advanced');
-    await page.click('#previewModeSample');
-    await expect(page.locator('#preview')).toBeHidden();
-
-    // the toggle goes away with the section, so the grid has to come back
-    await page.uncheck('#advanced');
-    await expect(page.locator('#previewModeBitmap')).toBeHidden();
-    await expect(page.locator('#sample-preview')).toBeHidden();
-    await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
-});
-
 test('the PNG still downloads while the sample preview is shown', async ({page}) => {
     await loadFixtureFont(page);
-    await page.check('#advanced');
     await page.click('#previewModeSample');
     await expect(page.locator('#preview')).toBeHidden();
 
@@ -648,16 +637,24 @@ test('the PNG still downloads while the sample preview is shown', async ({page})
     await expect(page.locator('#preview')).toBeHidden();
 });
 
-test('the advanced options switch hides the extra controls', async ({page}) => {
+test('the more options switch hides the extra controls', async ({page}) => {
     await loadFixtureFont(page);
-    for (const id of ['colorText', 'colorBackground', 'exportScale', 'sampleText', 'previewModeBitmap']) {
+
+    // it is the last switch of the row, right after the rendering options
+    await expect(page.locator('label[for=advanced]')).toHaveText('More options');
+    expect(await page.locator('#showGrid').evaluate((el) =>
+        [...el.closest('.card').querySelectorAll('input[role=switch]')].map((input) => input.id)))
+        .toEqual(['outline', 'antialiasing', 'subpixel', 'italic', 'centered', 'showGrid', 'advanced']);
+
+    for (const id of ['colorText', 'colorBackground', 'exportScale', 'sampleText']) {
         await expect(page.locator(`#${id}`)).toBeHidden();
     }
-    // the plain switches stay reachable without advanced options
+    // the plain switches and the preview tabs stay reachable without them
     await expect(page.locator('#centered')).toBeVisible();
+    await expect(page.locator('#previewModeBitmap')).toBeVisible();
 
     await page.check('#advanced');
-    for (const id of ['colorText', 'colorBackground', 'exportScale', 'sampleText', 'previewModeBitmap']) {
+    for (const id of ['colorText', 'colorBackground', 'exportScale', 'sampleText']) {
         await expect(page.locator(`#${id}`)).toBeVisible();
     }
 

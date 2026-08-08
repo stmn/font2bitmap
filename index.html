@@ -11,7 +11,11 @@
         body {
             background: #1D3557 !important;
             font-size: 13px;
-            overflow: hidden;
+            /* the tool is embedded in iframes of every height, so the page has
+               to be scrollable when it does not fit. Sideways it never should,
+               and a stray wide child must not turn into a second scrollbar */
+            overflow-y: auto;
+            overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
         }
 

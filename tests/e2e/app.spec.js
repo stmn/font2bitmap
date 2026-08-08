@@ -131,6 +131,49 @@ test('the remove duplicates button dedupes the character set', async ({page}) =>
     await expect(page.locator('#preview .cell')).toHaveCount(2);
 });
 
+/**
+ * The tool is embedded in iframes shorter than its own content, and the body
+ * used to be overflow:hidden, which locked the page even where the host offers
+ * scrollbars of its own
+ */
+test('the page scrolls vertically when the content does not fit', async ({page}) => {
+    await loadFixtureFont(page);
+
+    const metrics = () => page.evaluate(() => ({
+        scrollHeight: document.documentElement.scrollHeight,
+        clientHeight: document.documentElement.clientHeight,
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+    }));
+
+    // nothing sticks out sideways. Only down to the width of the grid itself:
+    // a row of fixed size cells is the bitmap being previewed and cannot
+    // reflow, which is what the clamp on the x axis is there for
+    for (const width of [1280, 1000]) {
+        await page.setViewportSize({width, height: 600});
+        const {scrollWidth, clientWidth} = await metrics();
+        expect(scrollWidth, `horizontal overflow at ${width}px`).toBeLessThanOrEqual(clientWidth + 1);
+    }
+
+    await page.setViewportSize({width: 1000, height: 600});
+    await page.check('#advanced');
+
+    const {scrollHeight, clientHeight} = await metrics();
+    expect(scrollHeight).toBeGreaterThan(clientHeight);
+
+    // a real wheel event, not window.scrollTo: an overflow:hidden page scrolls
+    // perfectly well from script, it is the user who cannot move it
+    await page.mouse.move(500, 300);
+    await page.mouse.wheel(0, 300);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+    // the capture reads the preview element, not the viewport, so a scrolled
+    // page has nothing to do with it
+    const downloadPromise = page.waitForEvent('download');
+    await page.click('button:has-text("DOWNLOAD BITMAP FONT")');
+    expect((await downloadPromise).suggestedFilename()).toMatch(/\.png$/);
+});
+
 test('downloads the PNG bitmap', async ({page}) => {
     await loadFixtureFont(page);
     const downloadPromise = page.waitForEvent('download');

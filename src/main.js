@@ -1,7 +1,7 @@
 import Alpine from "alpinejs";
 import download from "downloadjs"
 import * as htmlToImage from 'html-to-image'
-import {isValidURL, parseFontFaces} from "./helpers";
+import {isValidURL, outlineShadow, parseFontFaces} from "./helpers";
 import exports from "./exports";
 import Toastify from 'toastify-js'
 import "toastify-js/src/toastify.css"
@@ -9,22 +9,22 @@ import "toastify-js/src/toastify.css"
 
 const optionsStyles = {
     italic: {
-        cellStyles: `font-style: italic;`
+        cellStyles: () => `font-style: italic;`
     },
-    shadow: {
-        rowStyles: `text-shadow: -2px -2px 0 black, -2px -1px 0 black, -2px 0px 0 black, -2px 1px 0 black, -2px 2px 0 black, -1px -2px 0 black, -1px -1px 0 black, -1px 0px 0 black, -1px 1px 0 black, -1px 2px 0 black, 0px -2px 0 black, 0px -1px 0 black, 0px 0px 0 black, 0px 1px 0 black, 0px 2px 0 black, 1px -2px 0 black, 1px -1px 0 black, 1px 0px 0 black, 1px 1px 0 black, 1px 2px 0 black, 2px -2px 0 black, 2px -1px 0 black, 2px 0px 0 black, 2px 1px 0 black, 2px 2px 0 black`
+    outline: {
+        rowStyles: (data) => `text-shadow: ${outlineShadow(parseInt(data.outlineWidth) || 1, data.colors.outline)};`
     },
     antialiasing: {
-        cellStyles: `-webkit-font-smoothing: antialiased;`
+        cellStyles: () => `-webkit-font-smoothing: antialiased;`
     },
     subpixel: {
-        cellStyles: `-webkit-font-smoothing: subpixel-antialiased;`
+        cellStyles: () => `-webkit-font-smoothing: subpixel-antialiased;`
     },
     showGrid: {
-        cellStyles: `border: 1px solid #fff`,
+        cellStyles: () => `border: 1px solid #fff`,
     },
     centered: {
-        cellStyles: `justify-content: center !important; align-items: center !important;`
+        cellStyles: () => `justify-content: center !important; align-items: center !important;`
     }
 }
 
@@ -47,7 +47,7 @@ Alpine.data('converter', (a) => ({
     file: null,
 
     options: {
-        shadow: false,
+        outline: false,
         antialiasing: false,
         subpixel: false,
         italic: false,
@@ -55,6 +55,13 @@ Alpine.data('converter', (a) => ({
         showGrid: false,
         removeDuplicates: false,
     },
+
+    colors: {
+        text: '#ffffff',
+        outline: '#000000',
+        background: '',
+    },
+    outlineWidth: 2,
 
     fontIndex: 0,
     fonts: [],
@@ -196,7 +203,7 @@ Alpine.data('converter', (a) => ({
      */
     html() {
         let html = '';
-        let rowStyles = `display:flex; font-size: ${this.fontSize}px;`;
+        let rowStyles = `display:flex; font-size: ${this.fontSize}px; color: ${this.colors.text};`;
         let cellStyles = `display:flex; align-items: flex-end;`;
 
         if (!this.disabledGridSize) {
@@ -207,10 +214,10 @@ Alpine.data('converter', (a) => ({
         for (const [key] of Object.entries(this.options).filter(([key, value]) => value)) {
             const {cellStyles: cs, rowStyles: rs} = optionsStyles[key] ?? {};
             if (cs) {
-                cellStyles += cs;
+                cellStyles += cs(this);
             }
             if (rs) {
-                rowStyles += rs;
+                rowStyles += rs(this);
             }
         }
 
@@ -224,7 +231,7 @@ Alpine.data('converter', (a) => ({
             html += `</div>`;
         }
 
-        return `<div id="preview">${html}</div>`;
+        return `<div id="preview" style="${this.colors.background ? 'background: ' + this.colors.background + ';' : ''}">${html}</div>`;
     },
 
     /**

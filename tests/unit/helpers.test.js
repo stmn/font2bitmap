@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {parseFontFaces, isValidURL} from '../../src/helpers.js';
+import {parseFontFaces, isValidURL, outlineShadow} from '../../src/helpers.js';
 
 describe('parseFontFaces', () => {
     it('parses @font-face blocks', () => {
@@ -31,5 +31,20 @@ describe('isValidURL', () => {
     it('rejects other input', () => {
         expect(isValidURL('not a url')).toBe(false);
         expect(isValidURL('ftp://a.b')).toBe(false);
+    });
+});
+
+describe('outlineShadow', () => {
+    it('generates a full square of shadows', () => {
+        const value = outlineShadow(1, '#ff0000');
+        const parts = value.split(', ');
+        expect(parts).toHaveLength(9);
+        expect(parts).toContain('-1px -1px 0 #ff0000');
+        expect(parts).toContain('0px 0px 0 #ff0000');
+        expect(parts).toContain('1px 1px 0 #ff0000');
+    });
+
+    it('scales with width', () => {
+        expect(outlineShadow(2, '#000').split(', ')).toHaveLength(25);
     });
 });

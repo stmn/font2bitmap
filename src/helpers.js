@@ -34,6 +34,16 @@ export const parseFontFaces = (cssText) => {
     return fonts;
 }
 
+export const outlineShadow = (width, color) => {
+    const shadows = [];
+    for (let x = -width; x <= width; x++) {
+        for (let y = -width; y <= width; y++) {
+            shadows.push(`${x}px ${y}px 0 ${color}`);
+        }
+    }
+    return shadows.join(', ');
+}
+
 export const isValidURL = (string) => {
     let url;
     try {

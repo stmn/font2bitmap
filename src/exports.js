@@ -136,6 +136,33 @@ export const buildBMFontData = ({font, characters, perRow, gridWidth, gridHeight
 }
 
 /**
+ * Multiply every pixel field of BMFont data by the export scale, so the
+ * metrics keep matching a bitmap rendered at the same pixelRatio.
+ */
+export const scaleBMFont = (bmfont, scale) => ({
+    ...bmfont,
+    info: {...bmfont.info, size: bmfont.info.size * scale},
+    common: {
+        ...bmfont.common,
+        lineHeight: bmfont.common.lineHeight * scale,
+        base: bmfont.common.base * scale,
+        scaleW: bmfont.common.scaleW * scale,
+        scaleH: bmfont.common.scaleH * scale,
+    },
+    chars: bmfont.chars.map((char) => ({
+        ...char,
+        x: char.x * scale,
+        y: char.y * scale,
+        width: char.width * scale,
+        height: char.height * scale,
+        xoffset: char.xoffset * scale,
+        yoffset: char.yoffset * scale,
+        xadvance: char.xadvance * scale,
+    })),
+    kernings: bmfont.kernings.map((kerning) => ({...kerning, amount: kerning.amount * scale})),
+});
+
+/**
  * Measure the current font in the DOM and build BMFont data from it.
  */
 const buildBMFont = async (data) => {
@@ -145,7 +172,7 @@ const buildBMFont = async (data) => {
     const fontSize = parseInt(data.fontSize);
     const metrics = ctx.measureText('Hg');
 
-    return buildBMFontData({
+    return scaleBMFont(buildBMFontData({
         font,
         characters: data.effectiveCharacters(),
         perRow: parseInt(data.perRow),
@@ -157,7 +184,7 @@ const buildBMFont = async (data) => {
         measureText: (text) => ctx.measureText(text).width,
         ascent: metrics.fontBoundingBoxAscent ?? fontSize * 0.8,
         descent: metrics.fontBoundingBoxDescent ?? fontSize * 0.2,
-    });
+    }), parseInt(data.exportScale) || 1);
 }
 
 /**

@@ -39,6 +39,7 @@ Alpine.data('converter', (a) => ({
     gridHeight: 30,
     disabledGridSize: false,
     fontSize: 24,
+    exportScale: 1,
     characters: " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
 
     inputType: 'fontUrl', // fontUrl or file
@@ -245,7 +246,7 @@ Alpine.data('converter', (a) => ({
 
         setTimeout(() => {
             htmlToImage.toPng(
-                document.getElementById('preview'), {pixelRatio: 1}
+                document.getElementById('preview'), {pixelRatio: parseInt(this.exportScale) || 1}
             )
                 .then((dataUrl) => {
                     download(dataUrl, this.font().name + '.png');

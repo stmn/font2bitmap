@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {buildBMFontData, serializeBMFontText, normalizeFontWeight} from '../../src/exports.js';
+import {buildBMFontData, serializeBMFontText, normalizeFontWeight, scaleBMFont} from '../../src/exports.js';
 
 const charWidth = 10;
 const measure = (text) => Array.from(text).length * charWidth;
@@ -113,5 +113,20 @@ describe('normalizeFontWeight', () => {
         expect(normalizeFontWeight('bold')).toBe(700);
         expect(normalizeFontWeight('normal')).toBe(400);
         expect(normalizeFontWeight(undefined)).toBe(400);
+    });
+});
+
+describe('scaleBMFont', () => {
+    it('multiplies all pixel fields', () => {
+        const scaled = scaleBMFont(buildBMFontData({...baseInput(), characters: 'AV', measureText: (t) => t === 'AV' ? 18 : measure(t)}), 2);
+        expect(scaled.info.size).toBe(32);
+        expect(scaled.common).toMatchObject({lineHeight: 40, base: 32, scaleW: 80, scaleH: 40});
+        expect(scaled.chars[1]).toMatchObject({x: 40, y: 0, width: 40, height: 40, xadvance: 20});
+        expect(scaled.kernings[0].amount).toBe(-4);
+    });
+
+    it('returns an identical copy for scale 1', () => {
+        const bmfont = buildBMFontData(baseInput());
+        expect(scaleBMFont(bmfont, 1)).toEqual(bmfont);
     });
 });

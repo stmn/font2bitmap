@@ -2,12 +2,32 @@ import download from "downloadjs";
 import {toClipboard, toast} from "./helpers";
 
 /**
+ * Reduce a CSS font-weight value to a single number usable in the
+ * canvas font shorthand. Variable fonts declare a range like
+ * "100 900", which is invalid in the shorthand - such a family is
+ * rendered at the default weight, so 400 is used for measuring too.
+ */
+export const normalizeFontWeight = (weight) => {
+    const numbers = String(weight ?? '').match(/\d+/g);
+
+    if (!numbers) {
+        return String(weight ?? '').trim().toLowerCase() === 'bold' ? 700 : 400;
+    }
+
+    return numbers.length > 1 ? 400 : parseInt(numbers[0]);
+}
+
+/**
  * Create a canvas 2d context with the current font set,
  * making sure the font is loaded before measuring.
  */
 const measureContext = async (data) => {
     const font = data.font();
-    const fontSpec = `${font.style ?? 'normal'} ${font.weight ?? 400} ${data.fontSize}px "${font.name}"`;
+    // Italic is applied to the bitmap through CSS, so it has to be measured italic as well
+    const style = (font.style && font.style !== 'normal')
+        ? font.style
+        : (data.options.italic ? 'italic' : 'normal');
+    const fontSpec = `${style} ${normalizeFontWeight(font.weight)} ${data.fontSize}px "${font.name}"`;
 
     try {
         await document.fonts.load(fontSpec, data.characters);
@@ -17,6 +37,12 @@ const measureContext = async (data) => {
 
     const ctx = document.createElement('canvas').getContext('2d');
     ctx.font = fontSpec;
+
+    // An invalid shorthand is ignored silently and leaves the default 10px sans-serif
+    if (!ctx.font.includes(font.name)) {
+        ctx.font = `normal 400 ${data.fontSize}px "${font.name}"`;
+    }
+
     return ctx;
 }
 
@@ -24,38 +50,28 @@ const measureContext = async (data) => {
  * Build BMFont data (info, common, pages, chars, kernings) describing
  * the bitmap that "Download" produces: glyph positions on the grid,
  * spacing (xadvance) and kerning pairs measured from the font itself.
+ *
+ * Pure: every measurement comes from the injected measureText/ascent/descent.
  */
-const buildBMFont = async (data) => {
-    const ctx = await measureContext(data);
-    const font = data.font();
+export const buildBMFontData = ({font, characters, perRow, gridWidth, gridHeight, fontSize, centered, options, measureText, ascent, descent}) => {
+    const chars = Array.from(characters);
 
-    const perRow = parseInt(data.perRow);
-    const gridWidth = parseInt(data.gridWidth);
-    const gridHeight = parseInt(data.gridHeight);
-    const fontSize = parseInt(data.fontSize);
-    const centered = data.options.centered;
-
-    const characters = Array.from(data.characters);
-
-    const metrics = ctx.measureText('Hg');
-    const ascent = metrics.fontBoundingBoxAscent ?? fontSize * 0.8;
-    const descent = metrics.fontBoundingBoxDescent ?? fontSize * 0.2;
     const base = Math.round(centered
         ? gridHeight / 2 + (ascent - descent) / 2
         : gridHeight - descent);
 
     // Advance width of every unique character
     const advances = new Map();
-    characters.forEach((char) => {
+    chars.forEach((char) => {
         if (!advances.has(char)) {
-            advances.set(char, ctx.measureText(char).width);
+            advances.set(char, measureText(char));
         }
     });
 
     // Glyph positions on the grid (first occurrence wins for duplicates)
-    const chars = [];
+    const glyphs = [];
     const seen = new Set();
-    characters.forEach((char, index) => {
+    chars.forEach((char, index) => {
         const id = char.codePointAt(0);
         if (seen.has(id)) {
             return;
@@ -63,7 +79,7 @@ const buildBMFont = async (data) => {
         seen.add(id);
 
         const advance = advances.get(char);
-        chars.push({
+        glyphs.push({
             id: id,
             char: char,
             x: (index % perRow) * gridWidth,
@@ -80,9 +96,9 @@ const buildBMFont = async (data) => {
 
     // Kerning pairs: width of the pair minus widths of both characters
     const kernings = [];
-    chars.forEach((first) => {
-        chars.forEach((second) => {
-            const pairWidth = ctx.measureText(first.char + second.char).width;
+    glyphs.forEach((first) => {
+        glyphs.forEach((second) => {
+            const pairWidth = measureText(first.char + second.char);
             const amount = Math.round(pairWidth - advances.get(first.char) - advances.get(second.char));
             if (amount !== 0) {
                 kernings.push({first: first.id, second: second.id, amount});
@@ -95,12 +111,12 @@ const buildBMFont = async (data) => {
             face: font.name,
             size: fontSize,
             bold: parseInt(font.weight) >= 600 ? 1 : 0,
-            italic: (font.style === 'italic' || data.options.italic) ? 1 : 0,
+            italic: (font.style === 'italic' || options.italic) ? 1 : 0,
             charset: "",
             unicode: 1,
             stretchH: 100,
-            smooth: data.options.antialiasing ? 1 : 0,
-            aa: data.options.antialiasing ? 1 : 0,
+            smooth: options.antialiasing ? 1 : 0,
+            aa: options.antialiasing ? 1 : 0,
             padding: [0, 0, 0, 0],
             spacing: [0, 0],
             outline: 0,
@@ -108,21 +124,45 @@ const buildBMFont = async (data) => {
         common: {
             lineHeight: gridHeight,
             base: base,
-            scaleW: Math.min(characters.length, perRow) * gridWidth,
-            scaleH: Math.ceil(characters.length / perRow) * gridHeight,
+            scaleW: Math.min(chars.length, perRow) * gridWidth,
+            scaleH: Math.ceil(chars.length / perRow) * gridHeight,
             pages: 1,
             packed: 0,
         },
         pages: [font.name + '.png'],
-        chars: chars,
+        chars: glyphs,
         kernings: kernings,
     };
 }
 
 /**
+ * Measure the current font in the DOM and build BMFont data from it.
+ */
+const buildBMFont = async (data) => {
+    const ctx = await measureContext(data);
+    const font = data.font();
+    const fontSize = parseInt(data.fontSize);
+    const metrics = ctx.measureText('Hg');
+
+    return buildBMFontData({
+        font,
+        characters: data.characters,
+        perRow: parseInt(data.perRow),
+        gridWidth: parseInt(data.gridWidth),
+        gridHeight: parseInt(data.gridHeight),
+        fontSize: fontSize,
+        centered: data.options.centered,
+        options: data.options,
+        measureText: (text) => ctx.measureText(text).width,
+        ascent: metrics.fontBoundingBoxAscent ?? fontSize * 0.8,
+        descent: metrics.fontBoundingBoxDescent ?? fontSize * 0.2,
+    });
+}
+
+/**
  * Serialize BMFont data to the classic AngelCode .fnt text format
  */
-const serializeBMFontText = (bmfont) => {
+export const serializeBMFontText = (bmfont) => {
     const attrs = (object, skip = []) => Object.entries(object)
         .filter(([key]) => !skip.includes(key))
         .map(([key, value]) => {

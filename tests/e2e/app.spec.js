@@ -84,22 +84,23 @@ test('toggling every option keeps the preview alive', async ({page}) => {
     page.on('pageerror', (error) => errors.push(error));
 
     await loadFixtureFont(page);
-    for (const id of ['outline', 'antialiasing', 'subpixel', 'italic', 'centered', 'showGrid', 'removeDuplicates']) {
+    for (const id of ['outline', 'antialiasing', 'subpixel', 'italic', 'centered', 'showGrid']) {
         await page.check(`#${id}`);
     }
     await expect(page.locator('#preview .cell').first()).toBeVisible();
-    for (const id of ['removeDuplicates', 'showGrid', 'subpixel', 'antialiasing', 'outline']) {
+    for (const id of ['showGrid', 'subpixel', 'antialiasing', 'outline']) {
         await page.uncheck(`#${id}`);
     }
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
     expect(errors).toEqual([]);
 });
 
-test('remove duplicates dedupes the rendered grid', async ({page}) => {
+test('the remove duplicates button dedupes the character set', async ({page}) => {
     await loadFixtureFont(page);
     await page.fill('#characters', 'AAB');
     await expect(page.locator('#preview .cell')).toHaveCount(3);
-    await page.check('#removeDuplicates');
+    await page.click('#removeDuplicates');
+    await expect(page.locator('#characters')).toHaveValue('AB');
     await expect(page.locator('#preview .cell')).toHaveCount(2);
 });
 
@@ -125,18 +126,27 @@ test('exports BMFont .fnt and ZIP bundle', async ({page}) => {
     expect((await downloadPromise).suggestedFilename()).toMatch(/\.zip$/);
 });
 
-test('kaboom export copies code and shows a toast', async ({page}) => {
+test('kaplay export copies code and shows a toast', async ({page}) => {
     await loadFixtureFont(page);
     await page.click('#dropdownMenuButton1');
-    await page.click('a:has-text("KaboomJS")');
+    await page.click('a:has-text("KaPlay")');
     await expect(page.locator('.toastify')).toBeVisible();
 });
 
 test('character presets append without duplicates', async ({page}) => {
     await loadFixtureFont(page);
     await page.fill('#characters', '012');
-    await page.click('button:has-text("Digits")');
+    await page.click('#presetsDropdown');
+    await page.click('.dropdown-item:has-text("Digits")');
     await expect(page.locator('#characters')).toHaveValue('0123456789');
+});
+
+test('the presets dropdown can clear the characters', async ({page}) => {
+    await loadFixtureFont(page);
+    await page.click('#presetsDropdown');
+    await page.click('.dropdown-item:has-text("Clear")');
+    await expect(page.locator('#characters')).toHaveValue('');
+    await expect(page.locator('#preview .cell')).toHaveCount(0);
 });
 
 test('state survives a reload via the URL', async ({page}) => {
@@ -151,10 +161,57 @@ test('state survives a reload via the URL', async ({page}) => {
     await expect(page.locator('#preview .cell')).toHaveCount(3);
 });
 
-test('sample text preview renders', async ({page}) => {
+test('the sample text preview replaces the grid and can be edited', async ({page}) => {
     await loadFixtureFont(page);
+
+    // the sample text input only exists behind the advanced options switch
+    await expect(page.locator('#sampleText')).toBeHidden();
+    await page.check('#advanced');
+    await expect(page.locator('#sampleText')).toHaveValue('The quick brown fox jumps over the lazy dog 0123456789');
     await page.fill('#sampleText', 'Hello');
+
+    await page.click('#previewModeSample');
     await expect(page.locator('#sample-preview .cell')).toHaveCount(5);
+    await expect(page.locator('#preview')).toBeHidden();
+
+    await page.click('#previewModeBitmap');
+    await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
+    await expect(page.locator('#sample-preview')).toBeHidden();
+});
+
+test('the PNG still downloads while the sample preview is shown', async ({page}) => {
+    await loadFixtureFont(page);
+    await page.click('#previewModeSample');
+    await expect(page.locator('#preview')).toBeHidden();
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.click('button:has-text("DOWNLOAD BITMAP FONT")');
+    expect((await downloadPromise).suggestedFilename()).toMatch(/\.png$/);
+
+    // the grid is only forced on screen for the capture
+    await expect(page.locator('#preview')).toBeHidden();
+});
+
+test('the advanced options switch hides the extra controls', async ({page}) => {
+    await loadFixtureFont(page);
+    for (const id of ['colorText', 'colorBackground', 'exportScale', 'sampleText']) {
+        await expect(page.locator(`#${id}`)).toBeHidden();
+    }
+    // the plain switches stay reachable without advanced options
+    await expect(page.locator('#centered')).toBeVisible();
+
+    await page.check('#advanced');
+    for (const id of ['colorText', 'colorBackground', 'exportScale', 'sampleText']) {
+        await expect(page.locator(`#${id}`)).toBeVisible();
+    }
+
+    // the outline controls used to ignore the outline switch: Bootstrap's
+    // .d-flex is display:flex !important and beat the x-show display:none
+    await expect(page.locator('#outlineWidth')).toBeHidden();
+    await page.check('#outline');
+    await expect(page.locator('#outlineWidth')).toBeVisible();
+    await page.uncheck('#outline');
+    await expect(page.locator('#outlineWidth')).toBeHidden();
 });
 
 test('rapid x-show toggles do not throw', async ({page}) => {
@@ -195,6 +252,8 @@ const expectErrorBanner = async (page, brokenUrl) => {
     await page.fill('#font', brokenUrl);
     await expect(page.locator('.alert-danger')).toBeVisible({timeout: 10000});
     await expect(page.locator('#preview')).toHaveCount(0);
+    // nothing to preview, so the mode toggle goes away with the grid
+    await expect(page.locator('#previewModeBitmap')).toBeHidden();
 };
 
 test('bad font URL shows an error instead of crashing', async ({page}) => {

@@ -28,6 +28,12 @@
             -webkit-font-smoothing: none;
         }
 
+        /* A long sample must wrap instead of running off both sides of the page */
+        #sample-preview .line {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
         input[type=number], input[type=text] {
             max-height: 60px !important;
         }
@@ -41,6 +47,21 @@
             padding: 0 !important;
         }
 
+        /* Minimal text controls floating over the top right corner of the textarea.
+           Only the cluster itself takes pointer events, so typing is never blocked */
+        .characters-tools {
+            position: absolute;
+            top: 4px;
+            right: 8px;
+            z-index: 3;
+            font-size: 11px;
+            line-height: 1;
+        }
+
+        .characters-tools a {
+            font-size: 11px;
+        }
+
         [x-cloak] {
             display: none !important;
         }
@@ -52,7 +73,7 @@
 <style x-text="css"></style>
 <div class="container bg-grey mt-3" x-cloak>
     <div class="row">
-        <div class="col" style="color: #fff; margin-bottom: 3px; font-size: 13px;">
+        <div class="col d-flex align-items-center flex-wrap" style="color: #fff; margin-bottom: 3px; font-size: 13px;">
             <b>Upload:</b>
             <div class="form-check form-check-inline ms-1">
                 <input x-model="inputType" class="form-check-input" type="radio" name="inputType_fontUrl" id="inputType_fontUrl" value="fontUrl" checked>
@@ -65,6 +86,10 @@
                 <label class="form-check-label" for="inputType_file">
                     From File
                 </label>
+            </div>
+            <div class="form-check form-switch ms-2">
+                <input class="form-check-input" x-model="advanced" type="checkbox" role="switch" id="advanced">
+                <label class="form-check-label" for="advanced">Advanced options</label>
             </div>
         </div>
     </div>
@@ -126,36 +151,28 @@
                 <label for="fontSize">Font size</label>
             </div>
         </div>
-        <div class="col">
-            <div class="form-floating mb-3">
-                <select class="form-select" id="exportScale" x-model.number="exportScale">
-                    <option value="1">1x</option>
-                    <option value="2">2x</option>
-                    <option value="4">4x</option>
-                </select>
-                <label for="exportScale">Export scale</label>
+    </div>
+
+    <div class="form-floating mb-3 position-relative">
+            <textarea x-model="characters" class="form-control form-control-sm border-0" id="characters"
+                      style="height: 71px; padding-right: 230px;"></textarea>
+        <label for="characters">Characters</label>
+        <div class="characters-tools d-flex align-items-center gap-2">
+            <span class="text-muted" x-text="`${uniqueCharacters().length} / ${characters.length}`"></span>
+            <a href="#" id="removeDuplicates" class="link-secondary text-decoration-none"
+               @click.prevent="removeDuplicates()">Remove duplicates</a>
+            <div class="dropdown">
+                <a href="#" id="presetsDropdown" class="link-secondary text-decoration-none dropdown-toggle"
+                   role="button" data-bs-toggle="dropdown" aria-expanded="false">Presets</a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="presetsDropdown">
+                    <template x-for="name in presetNames()">
+                        <li><a class="dropdown-item" href="#" @click.prevent="addPreset(name)" x-text="name"></a></li>
+                    </template>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#" @click.prevent="clearCharacters()">Clear</a></li>
+                </ul>
             </div>
         </div>
-    </div>
-
-    <div class="form-floating mb-3">
-            <textarea x-model="characters" class="form-control form-control-sm border-0" id="characters"
-                      style="height: 71px;"></textarea>
-        <label for="characters">Characters</label>
-    </div>
-
-    <div class="mb-3 d-flex align-items-center gap-2 flex-wrap" style="color: #fff; font-size: 12px;">
-        <span>Presets:</span>
-        <template x-for="name in presetNames()">
-            <button class="btn btn-sm btn-outline-light" @click="addPreset(name)" x-text="name"></button>
-        </template>
-        <button class="btn btn-sm btn-outline-danger" @click="clearCharacters()">Clear</button>
-        <span class="ms-auto" x-text="`${uniqueCharacters().length} unique / ${characters.length} total`"></span>
-    </div>
-
-    <div class="form-floating mb-3">
-        <input type="text" x-model="sampleText" class="form-control form-control-sm border-0" id="sampleText" placeholder="Sample">
-        <label for="sampleText">Sample text (preview only, not exported)</label>
     </div>
 
     <div class="card p-2 px-3 border-0">
@@ -202,35 +219,46 @@
                     <label class="form-check-label" for="showGrid">Show grid</label>
                 </div>
             </div>
-            <div class="float-start ms-3">
-                <div class="form-check form-switch form-control-sm">
-                    <input class="form-check-input" x-model="options.removeDuplicates" type="checkbox" role="switch"
-                           id="removeDuplicates">
-                    <label class="form-check-label" for="removeDuplicates">Remove duplicates</label>
-                </div>
-            </div>
         </div>
     </div>
 
-    <div class="card p-2 px-3 border-0 mt-2">
+    <div class="card p-2 px-3 border-0 mt-2" x-show="advanced">
         <div class="d-flex align-items-center gap-3 flex-wrap form-control-sm">
             <div class="d-flex align-items-center gap-1">
                 <label for="colorText">Text</label>
                 <input type="color" class="form-control form-control-color" id="colorText" x-model="colors.text">
             </div>
-            <div class="d-flex align-items-center gap-1" x-show="options.outline">
-                <label for="colorOutline">Outline</label>
-                <input type="color" class="form-control form-control-color" id="colorOutline" x-model="colors.outline">
-            </div>
-            <div class="d-flex align-items-center gap-1" x-show="options.outline">
-                <label for="outlineWidth">Outline width</label>
-                <input type="number" min="1" max="4" style="width: 70px;" class="form-control" id="outlineWidth" x-model="outlineWidth">
-            </div>
+            <!-- x-if, not x-show: Bootstrap's .d-flex is display:flex !important,
+                 so it would win over the inline display:none x-show writes -->
+            <template x-if="options.outline">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center gap-1">
+                        <label for="colorOutline">Outline</label>
+                        <input type="color" class="form-control form-control-color" id="colorOutline" x-model="colors.outline">
+                    </div>
+                    <div class="d-flex align-items-center gap-1">
+                        <label for="outlineWidth">Outline width</label>
+                        <input type="number" min="1" max="4" style="width: 70px;" class="form-control" id="outlineWidth" x-model="outlineWidth">
+                    </div>
+                </div>
+            </template>
             <div class="d-flex align-items-center gap-1">
                 <label for="colorBackground">Background</label>
                 <input type="color" class="form-control form-control-color" id="colorBackground" x-model="colors.background">
                 <button class="btn btn-sm btn-outline-secondary" @click="colors.background = ''">Transparent</button>
             </div>
+            <div class="d-flex align-items-center gap-1">
+                <label for="exportScale">Export scale</label>
+                <select class="form-select form-select-sm" style="width: 80px;" id="exportScale" x-model.number="exportScale">
+                    <option value="1">1x</option>
+                    <option value="2">2x</option>
+                    <option value="4">4x</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-floating mt-2">
+            <input type="text" x-model="sampleText" class="form-control form-control-sm border-0" id="sampleText" placeholder="Sample">
+            <label for="sampleText">Sample text (preview only, not exported)</label>
         </div>
     </div>
 
@@ -246,8 +274,21 @@
                 <li><a class="dropdown-item" @click="exportCode('bmfontText')">BMFont (.fnt)</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" @click="exportCode('construct')">Construct 3</a></li>
-                <li><a class="dropdown-item" @click="exportCode('kaboom')">KaboomJS</a></li>
+                <li><a class="dropdown-item" @click="exportCode('kaplay')">KaPlay</a></li>
             </ul>
+        </div>
+    </div>
+
+    <!-- text-center, not d-flex: the latter is display:flex !important and would
+         beat the inline display:none that x-show writes -->
+    <div class="text-center" style="margin-top: 15px;" x-show="!loading && font() && !error">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Preview mode">
+            <button type="button" id="previewModeBitmap" class="btn"
+                    :class="previewMode === 'bitmap' ? 'btn-light' : 'btn-outline-light'"
+                    @click="previewMode = 'bitmap'">Bitmap</button>
+            <button type="button" id="previewModeSample" class="btn"
+                    :class="previewMode === 'sample' ? 'btn-light' : 'btn-outline-light'"
+                    @click="previewMode = 'sample'">Sample text</button>
         </div>
     </div>
 
@@ -260,10 +301,10 @@
         <div x-show="!loading">
             <template x-if="font() && !error">
                 <div>
-                    <div x-html="html"
+                    <div x-show="previewMode === 'bitmap'" x-html="html"
                          :style="`font-family: '${font()?.name}'; font-weight: ${font()?.weight}; font-style: ${font()?.style};`"></div>
-                    <div x-show="sampleText" id="sample-preview" x-html="sampleHtml"
-                         :style="`margin-top: 10px; font-family: '${font()?.name}'; font-weight: ${font()?.weight}; font-style: ${font()?.style};`"></div>
+                    <div x-show="previewMode === 'sample'" id="sample-preview" x-html="sampleHtml"
+                         :style="`font-family: '${font()?.name}'; font-weight: ${font()?.weight}; font-style: ${font()?.style};`"></div>
                 </div>
             </template>
             <template x-if="error">

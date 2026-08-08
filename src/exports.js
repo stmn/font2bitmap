@@ -31,7 +31,7 @@ const measureContext = async (data) => {
     const fontSpec = `${style} ${normalizeFontWeight(font.weight)} ${data.fontSize}px "${font.name}"`;
 
     try {
-        await document.fonts.load(fontSpec, data.effectiveCharacters());
+        await document.fonts.load(fontSpec, data.characters);
     } catch (e) {
         // keep going - measurement will use a fallback font at worst
     }
@@ -175,7 +175,7 @@ const buildBMFont = async (data) => {
 
     return scaleBMFont(buildBMFontData({
         font,
-        characters: data.effectiveCharacters(),
+        characters: data.characters,
         perRow: positiveInt(data.perRow),
         gridWidth: parseInt(data.gridWidth),
         gridHeight: parseInt(data.gridHeight),
@@ -258,26 +258,27 @@ export default {
         data.disabledGridSize = true;
 
         try {
-            await data.$nextTick()
+            // the cells are measured in the DOM, so the grid has to be on screen
+            await data.withBitmapPreview(() => {
+                document.querySelectorAll('#preview .cell').forEach(cell => {
+                    let found = -1;
+                    for (let i = 0; i < spacingData.length; i++) {
+                        let width = spacingData[i][0];
 
-            document.querySelectorAll('#preview .cell').forEach(cell => {
-                let found = -1;
-                for (let i = 0; i < spacingData.length; i++) {
-                    let width = spacingData[i][0];
-
-                    if (width === (Math.ceil(cell.offsetWidth))) {
-                        found = i;
-                        break;
+                        if (width === (Math.ceil(cell.offsetWidth))) {
+                            found = i;
+                            break;
+                        }
                     }
-                }
 
-                if (found === -1) {
-                    let width = (Math.ceil(cell.offsetWidth));
-                    biggestWidth = Math.max(biggestWidth, width);
-                    spacingData.push([width, cell.textContent]);
-                } else {
-                    spacingData[found][1] = (spacingData[found][1] + cell.textContent);
-                }
+                    if (found === -1) {
+                        let width = (Math.ceil(cell.offsetWidth));
+                        biggestWidth = Math.max(biggestWidth, width);
+                        spacingData.push([width, cell.textContent]);
+                    } else {
+                        spacingData[found][1] = (spacingData[found][1] + cell.textContent);
+                    }
+                });
             });
 
             // fix null widths
@@ -294,9 +295,11 @@ export default {
 
         toClipboard(JSON.stringify(spacingData));
     },
-    'kaboom': (data) => {
+    // KaPlay (the engine formerly known as Kaboom) loads a grid bitmap with
+    // loadBitmapFont(name, src, gridWidth, gridHeight, {chars})
+    'kaplay': (data) => {
         toClipboard(
-            `loadFont("${data.font().name}", "${data.font().name.replace(/ /g, '_') + '.png'}", ${data.gridWidth}, ${data.gridHeight}, {chars: "${data.effectiveCharacters().replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"})`
+            `loadBitmapFont("${data.font().name}", "${data.font().name.replace(/ /g, '_') + '.png'}", ${data.gridWidth}, ${data.gridHeight}, {chars: "${data.characters.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"})`
         );
     },
 }

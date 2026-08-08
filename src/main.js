@@ -61,7 +61,11 @@ Alpine.data('converter', (a) => ({
     fontSize: 24,
     exportScale: 1,
     characters: characterPresets['ASCII'],
-    sampleText: '',
+    sampleText: 'The quick brown fox jumps over the lazy dog 0123456789',
+
+    // view only, never persisted
+    advanced: false,
+    previewMode: 'bitmap', // bitmap or sample
 
     inputType: 'fontUrl', // fontUrl or file
     fontUrl: 'https://fonts.gstatic.com/s/pressstart2p/v14/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2',
@@ -74,7 +78,6 @@ Alpine.data('converter', (a) => ({
         italic: false,
         centered: true,
         showGrid: false,
-        removeDuplicates: false,
     },
 
     colors: {
@@ -235,11 +238,10 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
-     * Characters actually rendered on the grid
-     * @returns {string}
+     * Drop every repeated character from the current set, once
      */
-    effectiveCharacters() {
-        return this.options.removeDuplicates ? this.uniqueCharacters() : this.characters;
+    removeDuplicates() {
+        this.characters = this.uniqueCharacters();
     },
 
     presetNames() {
@@ -361,7 +363,7 @@ Alpine.data('converter', (a) => ({
 
         // Prepare HTML
         const perRow = positiveInt(this.perRow);
-        let letters = Array.from(this.effectiveCharacters());
+        let letters = Array.from(this.characters);
         while (letters.length) {
             html += `<div class="line" style="${rowStyles}">`;
             for (let i = 0; i < perRow && letters.length; i++) {
@@ -396,6 +398,25 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
+     * Run a callback with the character grid on screen, then put the preview
+     * back the way the user left it. Anything measuring or capturing #preview
+     * needs this, a hidden element has no size and captures blank
+     * @returns {Promise<*>}
+     */
+    async withBitmapPreview(callback) {
+        const previewMode = this.previewMode;
+        this.previewMode = 'bitmap';
+
+        await this.$nextTick();
+
+        try {
+            return await callback();
+        } finally {
+            this.previewMode = previewMode;
+        }
+    },
+
+    /**
      * Render the preview to a PNG data URL (grid hidden, page chrome stripped)
      * @returns {Promise<string>}
      */
@@ -406,13 +427,11 @@ Alpine.data('converter', (a) => ({
         this.options.showGrid = false;
         body.classList.add('downloading');
 
-        await this.$nextTick();
-
         try {
-            return await htmlToImage.toPng(
+            return await this.withBitmapPreview(() => htmlToImage.toPng(
                 document.getElementById('preview'),
                 {pixelRatio: parseInt(this.exportScale) || 1}
-            );
+            ));
         } finally {
             body.classList.remove('downloading');
             this.options = options;

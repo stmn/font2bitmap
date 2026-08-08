@@ -1,9 +1,12 @@
 import {describe, it, expect, afterEach} from 'vitest';
 import {
     glyphsLoadedMessage,
+    MAX_STORED_FONT_BYTES,
+    readStoredFontFile,
     readStoredState,
     STATE_STORAGE_KEY,
     SLOW_CHARACTERS,
+    writeStoredFontFile,
     writeStoredState,
     parseFontFaces,
     isValidURL,
@@ -157,6 +160,52 @@ describe('stored state', () => {
     });
 });
 
+/**
+ * The real roundtrip needs a browser, it is covered by the e2e suite. What has
+ * to hold here is that a missing or refused IndexedDB never escapes as an error
+ */
+describe('stored font file', () => {
+    afterEach(() => {
+        delete globalThis.window;
+    });
+
+    const fileStub = ({size = 4, arrayBuffer = async () => new ArrayBuffer(size)} = {}) =>
+        ({name: 'font.ttf', type: 'font/ttf', size, arrayBuffer});
+
+    it('reads null when there is no IndexedDB at all', async () => {
+        await expect(readStoredFontFile()).resolves.toBeNull();
+    });
+
+    it('swallows a write when there is no IndexedDB at all', async () => {
+        await expect(writeStoredFontFile(fileStub())).resolves.toBeUndefined();
+    });
+
+    it('swallows a database the browser refuses to open', async () => {
+        globalThis.window = {
+            indexedDB: {
+                open: () => {
+                    throw new Error('SecurityError');
+                },
+            },
+        };
+
+        await expect(readStoredFontFile()).resolves.toBeNull();
+        await expect(writeStoredFontFile(fileStub())).resolves.toBeUndefined();
+    });
+
+    it('skips a file too big to be worth keeping, without reading it', async () => {
+        const tooBig = fileStub({
+            size: MAX_STORED_FONT_BYTES + 1,
+            arrayBuffer: () => {
+                throw new Error('should never be read');
+            },
+        });
+
+        await expect(writeStoredFontFile(tooBig)).resolves.toBeUndefined();
+        await expect(writeStoredFontFile(null)).resolves.toBeUndefined();
+    });
+});
+
 describe('glyphsLoadedMessage', () => {
     it('formats the glyph count message', () => {
         expect(glyphsLoadedMessage('ABC')).toBe('3 glyphs loaded!');
@@ -288,6 +337,21 @@ describe('sanitizeState', () => {
         expect(clean.fontUrl).toBe('https://example.com/%3C/style%3E%3Cimg%20src=x%20onerror=alert(1)%3E');
         expect(clean.fontUrl).not.toContain('<');
         expect(clean.fontUrl).not.toContain('>');
+    });
+
+    it('keeps an uploaded font marker as nothing but its name', () => {
+        expect(sanitizeState({fontFile: {name: 'x.ttf'}}, defaults()).fontFile).toEqual({name: 'x.ttf'});
+        expect(sanitizeState({fontFile: {name: 'x.ttf', data: 'AAAA'}}, defaults()).fontFile).toEqual({name: 'x.ttf'});
+    });
+
+    it('rejects an uploaded font marker that is not a named object', () => {
+        expect(sanitizeState({fontFile: 42}, defaults()).fontFile).toBeUndefined();
+        expect(sanitizeState({fontFile: 'x.ttf'}, defaults()).fontFile).toBeUndefined();
+        expect(sanitizeState({fontFile: null}, defaults()).fontFile).toBeUndefined();
+        expect(sanitizeState({fontFile: [{name: 'x.ttf'}]}, defaults()).fontFile).toBeUndefined();
+        expect(sanitizeState({fontFile: {}}, defaults()).fontFile).toBeUndefined();
+        expect(sanitizeState({fontFile: {name: {name: 'x.ttf'}}}, defaults()).fontFile).toBeUndefined();
+        expect(sanitizeState({fontFile: {name: 7}}, defaults()).fontFile).toBeUndefined();
     });
 
     it('rejects an export scale that is not offered', () => {

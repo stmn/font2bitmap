@@ -161,6 +161,92 @@ export const writeStoredState = (state) => {
     }
 }
 
+export const FONT_DB_NAME = 'font2bitmap';
+const FONT_STORE_NAME = 'files';
+const FONT_RECORD_KEY = 'lastFont';
+
+/**
+ * Uploaded fonts bigger than this are not kept: the browser would likely
+ * refuse the quota anyway, and a restore of that size is not worth the wait
+ */
+export const MAX_STORED_FONT_BYTES = 20 * 1024 * 1024;
+
+const openFontDb = () => new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(FONT_DB_NAME, 1);
+
+    request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(FONT_STORE_NAME)) {
+            db.createObjectStore(FONT_STORE_NAME);
+        }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error('IndexedDB open blocked'));
+});
+
+/**
+ * Run one request against the font store and resolve with its result. Every
+ * caller wraps this in a try/catch: no IndexedDB at all, a denied database in a
+ * sandboxed frame and a full quota all land here as a rejection
+ */
+const withFontStore = async (mode, run) => {
+    const db = await openFontDb();
+
+    try {
+        return await new Promise((resolve, reject) => {
+            const request = run(db.transaction(FONT_STORE_NAME, mode).objectStore(FONT_STORE_NAME));
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    } finally {
+        db.close();
+    }
+}
+
+/**
+ * The uploaded font of the previous session. localStorage is textual and far
+ * too small for a font binary, so the bytes live in IndexedDB instead
+ * @returns {Promise<{name: string, type: string, data: ArrayBuffer}|null>}
+ */
+export const readStoredFontFile = async () => {
+    try {
+        return (await withFontStore('readonly', (store) => store.get(FONT_RECORD_KEY))) ?? null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * Keep the bytes of an uploaded font, so "Last session" can bring it back.
+ * Silent on failure, exactly like the localStorage helpers: the session simply
+ * comes back without its font
+ * @param file the File the user picked or dropped
+ * @returns {Promise<void>}
+ */
+export const writeStoredFontFile = async (file) => {
+    if (!file || file.size > MAX_STORED_FONT_BYTES) {
+        return;
+    }
+
+    try {
+        const record = {name: file.name, type: file.type, data: await file.arrayBuffer()};
+
+        await withFontStore('readwrite', (store) => store.put(record, FONT_RECORD_KEY));
+    } catch (e) {
+        // storage denied or over quota
+    }
+}
+
+/**
+ * Turn a stored record back into a File, so a restored upload goes through the
+ * very same load path a fresh one does
+ * @returns {File|null}
+ */
+export const storedFontFileToFile = (record) => record?.data
+    ? new File([record.data], record.name || 'font', {type: record.type || ''})
+    : null;
+
 export const deserializeState = (raw) => {
     // URLSearchParams already percent-decodes, so plain JSON is the normal case
     try {
@@ -212,7 +298,7 @@ export const clampOutlineWidth = (value) => clampInt(value, OUTLINE_WIDTH_MIN, O
 /**
  * Configuration keys kept in the query string
  */
-export const PERSISTED_KEYS = ['perRow', 'gridWidth', 'gridHeight', 'fontSize', 'exportScale', 'characters', 'sampleText', 'fontUrl', 'inputType', 'options', 'colors', 'outlineWidth', 'fontIndex'];
+export const PERSISTED_KEYS = ['perRow', 'gridWidth', 'gridHeight', 'fontSize', 'exportScale', 'characters', 'sampleText', 'fontUrl', 'fontFile', 'inputType', 'options', 'colors', 'outlineWidth', 'fontIndex'];
 
 const EXPORT_SCALES = [1, 2, 4];
 const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/;
@@ -227,6 +313,18 @@ const asString = (value) => typeof value === 'string' ? value : undefined;
 const asOneOf = (allowed) => (value) => allowed.includes(value) ? value : undefined;
 
 const asColor = (value) => value === '' || HEX_COLOR.test(String(value)) ? value : undefined;
+
+/**
+ * The marker of an uploaded font session. The bytes are in IndexedDB, so this
+ * carries the file name and nothing else - anything richer is dropped
+ */
+const asFileMarker = (value) => {
+    const name = typeof value === 'object' && value !== null && !Array.isArray(value)
+        ? asString(value.name)
+        : undefined;
+
+    return name === undefined ? undefined : {name};
+};
 
 /**
  * Merge saved values over the current object, keeping only known keys
@@ -265,6 +363,7 @@ const STATE_SANITIZERS = {
     inputType: asOneOf(['fontUrl', 'file']),
     // href percent-encodes the characters that could break out of a CSS url()
     fontUrl: (value) => isValidURL(value) ? new URL(value).href : undefined,
+    fontFile: asFileMarker,
     options: (value, current) => mergeSanitized(value, current, (option) => Boolean(option)),
     colors: (value, current) => mergeSanitized(value, current, asColor),
 };

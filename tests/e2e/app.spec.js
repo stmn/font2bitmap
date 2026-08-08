@@ -281,6 +281,83 @@ test('a saved session comes back only when it is asked for', async ({page}) => {
 });
 
 /**
+ * Upload the fixture through the file input and wait for the grid it renders
+ * from the blob URL
+ */
+const uploadFixtureFont = async (page) => {
+    await page.goto('/');
+    await expect(page.locator('#preview .cell').first()).toBeVisible({timeout: 10000});
+
+    await page.check('#inputType_file');
+    await page.setInputFiles('#file', FIXTURE_PATH);
+    await page.fill('#characters', 'XYZ');
+    await expect(page.locator('#preview .cell')).toHaveCount(3);
+};
+
+const FIXTURE_FILE_NAME = 'PressStart2P-Regular.woff2';
+
+/**
+ * A blob URL dies with the session that made it, so an uploaded font can only
+ * come back if its bytes were kept. They go to IndexedDB, the saved state
+ * carries nothing but the file name
+ */
+test('a saved session brings an uploaded font file back', async ({page}) => {
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error));
+
+    await uploadFixtureFont(page);
+    await waitForPersistedState(page, [
+        ['"inputType":"file"'],
+        [`"fontFile":{"name":"${FIXTURE_FILE_NAME}"}`],
+        ['"characters":"XYZ"'],
+    ]);
+
+    // a plain load, back on the default font
+    await page.goto('/');
+    await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
+
+    // click, not check: the restore moves the radio on to "From File"
+    await page.click('#inputType_lastSession');
+
+    await expect(page.locator('#inputType_file')).toBeChecked();
+    // a file input cannot be filled from script, the hint says what is loaded
+    await expect(page.locator('#restoredFile')).toHaveText(`Restored: ${FIXTURE_FILE_NAME}`);
+    await expect(page.locator('#characters')).toHaveValue('XYZ');
+    await expect(page.locator('#preview .cell')).toHaveCount(3);
+    expect(errors).toEqual([]);
+});
+
+/**
+ * The marker survives in a share link, the bytes behind it never leave the
+ * browser that stored them
+ */
+test('a session whose uploaded font is gone restores without it', async ({page}) => {
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error));
+
+    await uploadFixtureFont(page);
+    await waitForPersistedState(page, [['"inputType":"file"'], ['"characters":"XYZ"']]);
+
+    // what another machine sees: the state is there, the font bytes are not
+    await page.evaluate(() => new Promise((resolve) => {
+        const request = indexedDB.deleteDatabase('font2bitmap');
+        request.onsuccess = request.onerror = request.onblocked = () => resolve();
+    }));
+
+    await page.goto('/');
+    await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
+
+    await page.click('#inputType_lastSession');
+
+    await expect(page.locator('.toastify')).toContainText('Saved font file is no longer available');
+    // everything but the font still comes back, on the font already loaded
+    await expect(page.locator('#characters')).toHaveValue('XYZ');
+    await expect(page.locator('#preview .cell')).toHaveCount(3);
+    await expect(page.locator('#restoredFile')).toBeHidden();
+    expect(errors).toEqual([]);
+});
+
+/**
  * The snapshot used to be handed to the component by reference, so the nested
  * options and colors objects were the very same ones the app then mutated
  */

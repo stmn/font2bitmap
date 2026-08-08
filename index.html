@@ -114,6 +114,11 @@
             }
         }
 
+        /* Bootstrap greys its hints for a light page, this one sits on the dark one */
+        #restoredFile {
+            color: #adb5bd;
+        }
+
         [x-cloak] {
             display: none !important;
         }
@@ -157,6 +162,10 @@
         <div class="col">
             <div class="mb-3">
                 <input class="form-control" x-on:change="onFile($event)" type="file" id="file">
+                <!-- a file input cannot be filled from script, so a restored
+                     upload says what it loaded instead -->
+                <div class="form-text" id="restoredFile" x-show="restoredFontName"
+                     x-text="`Restored: ${restoredFontName}`"></div>
             </div>
         </div>
     </div>

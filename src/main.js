@@ -12,10 +12,13 @@ import {
     parseFontFaces,
     PERSISTED_KEYS,
     positiveInt,
+    readStoredFontFile,
     readStoredState,
     sanitizeState,
     serializeState,
+    storedFontFileToFile,
     toast,
+    writeStoredFontFile,
     writeStoredState
 } from "./helpers";
 import exports from "./exports";
@@ -91,6 +94,14 @@ Alpine.data('converter', (a) => ({
     fontUrl: 'https://fonts.gstatic.com/s/pressstart2p/v14/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2',
     file: null,
 
+    // marker of an uploaded font session: the bytes are in IndexedDB, a blob
+    // URL would be dead by the time the state is read back
+    fontFile: null,
+
+    // view only, the name a restored upload came back under. A file input
+    // cannot be filled programmatically, so the hint says what is loaded
+    restoredFontName: null,
+
     options: {
         outline: false,
         antialiasing: false,
@@ -113,6 +124,7 @@ Alpine.data('converter', (a) => ({
     restoredFontIndex: null,
     persistTimeout: null,
     savedSession: null,
+    savedFontFile: null,
     loadGeneration: 0,
 
     fontsList() {
@@ -127,6 +139,11 @@ Alpine.data('converter', (a) => ({
     init() {
         // read before anything of this session can overwrite it
         this.savedSession = this.readSavedSession();
+
+        // the bytes of the previous upload, kept as the promise itself: every
+        // write of this session is chained onto it, so a fast upload can never
+        // land before the read that has to see what came before it
+        this.savedFontFile = readStoredFontFile();
 
         this.restoreState();
 
@@ -184,19 +201,26 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
-     * Bring the previous session back. The radio stays on "Last session": the
-     * snapshot of a file upload carries no source at all, and any other
-     * snapshot would only put the radio back on "From URL"
+     * Bring the previous session back. For a URL session the radio stays on
+     * "Last session", putting it back on "From URL" would say nothing extra. A
+     * restored upload does move it to "From File", which is where its font
+     * came from and where the name of the restored file is shown
+     * @returns {Promise<void>}
      */
-    restoreSavedSession() {
+    async restoreSavedSession() {
         if (!this.savedSession) {
             return;
         }
 
-        const {inputType, ...state} = this.savedSession;
+        const {inputType, fontFile, ...state} = this.savedSession;
         const previousUrl = this.fontUrl;
 
         this.applyState(state);
+
+        if (inputType === 'file') {
+            await this.restoreSavedFontFile();
+            return;
+        }
 
         // a changed URL reloads the font and takes the stashed variant with it.
         // An unchanged one never does, so hand it over here. Comparing the two
@@ -205,6 +229,26 @@ Alpine.data('converter', (a) => ({
         if (this.fontUrl === previousUrl) {
             this.fontIndex = this.takeRestoredFontIndex();
         }
+    },
+
+    /**
+     * Load the font the previous session uploaded, from the bytes read in init.
+     * They can be gone for good: storage cleared, or a share link carrying the
+     * marker opened on another machine. The current font stays in that case
+     * @returns {Promise<void>}
+     */
+    async restoreSavedFontFile() {
+        const file = storedFontFileToFile(await this.savedFontFile);
+
+        if (!file) {
+            // the stashed variant belongs to the session that cannot come back
+            this.takeRestoredFontIndex();
+            toast("Saved font file is no longer available");
+            return;
+        }
+
+        this.inputType = 'file';
+        await this.loadFile(file, {remember: false});
     },
 
     /**
@@ -251,10 +295,12 @@ Alpine.data('converter', (a) => ({
             state[key] = this.unproxy(this[key]);
         });
 
-        // a locally uploaded font cannot be shared, so do not persist a stale source
+        // the blob URL of an uploaded font dies with the session, so only the
+        // marker is kept - the bytes behind it are in IndexedDB
         if (state.inputType === 'file') {
             delete state.fontUrl;
-            delete state.inputType;
+        } else {
+            delete state.fontFile;
         }
 
         // "Last session" is a restore action, never a source to restore into
@@ -274,11 +320,26 @@ Alpine.data('converter', (a) => ({
     /**
      * Load font from a local File object
      * @param file
+     * @param remember keep the bytes for the next session. Off for the restore
+     * of a session, which is reading those very bytes back
      */
-    loadFile(file) {
+    loadFile(file, {remember = true} = {}) {
         if (!file) {
             return;
         }
+
+        this.fontFile = {name: file.name};
+        this.restoredFontName = remember ? null : file.name;
+
+        if (remember) {
+            // chained onto the read of init, which must not see this write
+            this.savedFontFile = this.savedFontFile
+                .then(async (previous) => {
+                    await writeStoredFontFile(file);
+                    return previous;
+                });
+        }
+
         return this.loadURL(URL.createObjectURL(file));
     },
 

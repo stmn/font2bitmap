@@ -1,23 +1,44 @@
 import {test, expect} from '@playwright/test';
+import path from 'path';
 
+const FIXTURE_PATH = path.join(__dirname, '..', '..', 'public', 'fonts', 'PressStart2P-Regular.woff2');
 const FIXTURE_URL = 'http://localhost:5199/fonts/PressStart2P-Regular.woff2';
 const ASCII_COUNT = 95;
 
+/**
+ * The app loads a remote font on every page load. Serve the committed fixture
+ * instead, so no test depends on the network and every page starts in the same
+ * loaded, error free state.
+ */
+test.beforeEach(async ({page}) => {
+    await page.route('https://fonts.gstatic.com/**', (route) => route.fulfill({
+        path: FIXTURE_PATH,
+        contentType: 'font/woff2',
+    }));
+});
+
+/**
+ * Load the fixture through the dev server, waiting for the response so the
+ * preview is known to come from the font just typed in
+ */
 const loadFixtureFont = async (page) => {
     await page.goto('/');
+    const fixtureResponse = page.waitForResponse(FIXTURE_URL);
     await page.fill('#font', FIXTURE_URL);
+    await fixtureResponse;
     await expect(page.locator('#preview .cell').first()).toBeVisible({timeout: 10000});
 };
 
 /**
- * persistState is debounced, so wait for the query string to carry the
- * final value instead of racing the timer
+ * persistState is debounced and writes every key on every write, so wait for
+ * fragments only the expected state can produce instead of racing the timer.
+ * Each group holds the accepted spellings of one value.
  */
-const waitForPersistedState = async (page, fragment) => {
+const waitForPersistedState = async (page, groups) => {
     await page.waitForFunction((expected) => {
         const state = new URLSearchParams(location.search).get('s');
-        return Boolean(state) && state.includes(expected);
-    }, fragment);
+        return Boolean(state) && expected.every((alternatives) => alternatives.some((fragment) => state.includes(fragment)));
+    }, groups);
 };
 
 test('renders the full character grid from a local font', async ({page}) => {
@@ -93,7 +114,7 @@ test('state survives a reload via the URL', async ({page}) => {
     await loadFixtureFont(page);
     await page.fill('#characters', 'ABC');
     await page.fill('#perRow', '5');
-    await waitForPersistedState(page, '"perRow"');
+    await waitForPersistedState(page, [['"characters":"ABC"'], ['"perRow":5', '"perRow":"5"']]);
     await expect(page).toHaveURL(/\?s=/);
     await page.reload();
     await expect(page.locator('#characters')).toHaveValue('ABC');
@@ -134,13 +155,24 @@ test('rapid x-show toggles do not throw', async ({page}) => {
     expect(errors).toEqual([]);
 });
 
+/**
+ * Type a broken font URL from a known good state, so the banner can only be
+ * the result of that URL failing
+ */
+const expectErrorBanner = async (page, brokenUrl) => {
+    await loadFixtureFont(page);
+    await expect(page.locator('.alert-danger')).toHaveCount(0);
+
+    await page.fill('#font', brokenUrl);
+    await expect(page.locator('.alert-danger')).toBeVisible({timeout: 10000});
+    await expect(page.locator('#preview')).toHaveCount(0);
+};
+
 test('bad font URL shows an error instead of crashing', async ({page}) => {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error));
 
-    await page.goto('/');
-    await page.fill('#font', 'http://localhost:5199/does-not-exist.woff2');
-    await expect(page.locator('.alert-danger')).toBeVisible({timeout: 10000});
+    await expectErrorBanner(page, 'http://localhost:5199/does-not-exist.woff2');
     expect(errors).toEqual([]);
 });
 
@@ -149,8 +181,6 @@ test('a failed font request shows an error instead of crashing', async ({page}) 
     page.on('pageerror', (error) => errors.push(error));
 
     await page.route('**/cors-blocked.css', (route) => route.abort('failed'));
-    await page.goto('/');
-    await page.fill('#font', 'http://localhost:5199/cors-blocked.css');
-    await expect(page.locator('.alert-danger')).toBeVisible({timeout: 10000});
+    await expectErrorBanner(page, 'http://localhost:5199/cors-blocked.css');
     expect(errors).toEqual([]);
 });

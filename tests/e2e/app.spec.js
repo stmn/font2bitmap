@@ -157,7 +157,11 @@ test('all glyphs in font fills the characters from the font cmap', async ({page}
 
     await page.click('#presetsDropdown');
     await expect(page.locator('#allGlyphs')).not.toHaveClass(/disabled/);
+    // reachable by keyboard while it is usable
+    await expect(page.locator('#allGlyphs')).not.toHaveAttribute('tabindex', '-1');
     await page.click('#allGlyphs');
+    // the toast reports what was loaded, it does not claim an append
+    await expect(page.locator('.toastify')).toContainText(/^\d+ glyphs loaded!$/);
 
     // Press Start 2P covers ASCII and then some
     await expect(page.locator('#characters')).not.toHaveValue('A');
@@ -291,6 +295,8 @@ const expectErrorBanner = async (page, brokenUrl) => {
     // and there is no font binary to read glyphs from
     await page.click('#presetsDropdown');
     await expect(page.locator('#allGlyphs')).toHaveClass(/disabled/);
+    // a disabled dropdown item has to drop out of the tab order too
+    await expect(page.locator('#allGlyphs')).toHaveAttribute('tabindex', '-1');
     await page.keyboard.press('Escape');
 };
 

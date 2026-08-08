@@ -300,9 +300,12 @@ Alpine.data('converter', (a) => ({
 
             this.characters = characters;
 
-            if (characters.length > SLOW_CHARACTERS) {
-                toast(`${characters.length} glyphs added, exporting will be slow!`);
-            }
+            // one glyph can be a surrogate pair, so codepoints are what counts
+            const glyphs = Array.from(characters).length;
+
+            toast(glyphs > SLOW_CHARACTERS
+                ? `${glyphs} glyphs loaded, exporting will be slow!`
+                : `${glyphs} glyphs loaded!`);
         } catch (e) {
             console.error(e);
             toast("Could not read the glyphs of this font!");

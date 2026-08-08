@@ -201,6 +201,7 @@
                         <a class="dropdown-item" href="#" id="allGlyphs"
                            :class="glyphsAvailable() ? '' : 'disabled'"
                            :aria-disabled="glyphsAvailable() ? 'false' : 'true'"
+                           :tabindex="glyphsAvailable() ? false : '-1'"
                            @click.prevent="useAllGlyphs()"
                            x-text="glyphsLoading ? 'Reading glyphs...' : 'All glyphs in font'"></a>
                     </li>

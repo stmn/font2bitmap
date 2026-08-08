@@ -1,7 +1,18 @@
 import Alpine from "alpinejs";
 import download from "downloadjs"
 import * as htmlToImage from 'html-to-image'
-import {deserializeState, isValidURL, outlineShadow, parseFontFaces, serializeState, toast} from "./helpers";
+import {
+    clampOutlineWidth,
+    deserializeState,
+    isValidURL,
+    outlineShadow,
+    parseFontFaces,
+    PERSISTED_KEYS,
+    positiveInt,
+    sanitizeState,
+    serializeState,
+    toast
+} from "./helpers";
 import exports from "./exports";
 import "toastify-js/src/toastify.css"
 
@@ -11,7 +22,7 @@ const optionsStyles = {
         cellStyles: () => `font-style: italic;`
     },
     outline: {
-        rowStyles: (data) => `text-shadow: ${outlineShadow(parseInt(data.outlineWidth) || 1, data.colors.outline)};`
+        rowStyles: (data) => `text-shadow: ${outlineShadow(clampOutlineWidth(data.outlineWidth), data.colors.outline)};`
     },
     antialiasing: {
         cellStyles: () => `-webkit-font-smoothing: antialiased;`
@@ -35,62 +46,7 @@ const characterPresets = {
     'Latin-1': "¡¢£¥§©«®°±²³µ¶·»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ",
 };
 
-const PERSISTED_KEYS = ['perRow', 'gridWidth', 'gridHeight', 'fontSize', 'exportScale', 'characters', 'sampleText', 'fontUrl', 'inputType', 'options', 'colors', 'outlineWidth', 'fontIndex'];
-
 const PERSIST_DELAY = 300;
-const EXPORT_SCALES = [1, 2, 4];
-const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/;
-
-const asInt = (value) => {
-    const number = parseInt(value);
-    return Number.isNaN(number) ? undefined : number;
-};
-
-const asString = (value) => typeof value === 'string' ? value : undefined;
-
-const asOneOf = (allowed) => (value) => allowed.includes(value) ? value : undefined;
-
-const asColor = (value) => value === '' || HEX_COLOR.test(String(value)) ? value : undefined;
-
-/**
- * Merge saved values over the current object, keeping only known keys
- * whose value survives the sanitizer
- */
-const mergeSanitized = (saved, current, sanitize) => {
-    if (typeof saved !== 'object' || saved === null) {
-        return undefined;
-    }
-
-    const merged = {...current};
-    Object.keys(current).forEach((key) => {
-        const value = sanitize(saved[key]);
-        if (saved[key] !== undefined && value !== undefined) {
-            merged[key] = value;
-        }
-    });
-
-    return merged;
-};
-
-/**
- * URL state is attacker controlled and ends up inside x-html style attributes,
- * so every restored value has to be validated before it is assigned
- */
-const STATE_SANITIZERS = {
-    perRow: asInt,
-    gridWidth: asInt,
-    gridHeight: asInt,
-    fontSize: asInt,
-    outlineWidth: asInt,
-    fontIndex: asInt,
-    exportScale: (value) => asOneOf(EXPORT_SCALES)(asInt(value)),
-    characters: asString,
-    sampleText: asString,
-    inputType: asOneOf(['fontUrl', 'file']),
-    fontUrl: (value) => isValidURL(value) ? value : undefined,
-    options: (value, current) => mergeSanitized(value, current, (option) => Boolean(option)),
-    colors: (value, current) => mergeSanitized(value, current, asColor),
-};
 
 window.googleFonts = Alpine.reactive({items: []})
 
@@ -171,20 +127,8 @@ Alpine.data('converter', (a) => ({
     restoreState() {
         const raw = new URLSearchParams(window.location.search).get('s');
         const saved = raw ? deserializeState(raw) : null;
-        if (!saved || typeof saved !== 'object') {
-            return;
-        }
 
-        PERSISTED_KEYS.forEach((key) => {
-            if (saved[key] === undefined) {
-                return;
-            }
-
-            const value = STATE_SANITIZERS[key](saved[key], this[key]);
-            if (value === undefined) {
-                return;
-            }
-
+        Object.entries(sanitizeState(saved, this)).forEach(([key, value]) => {
             if (key === 'fontIndex') {
                 // loadURL resets fontIndex once the fonts are fetched, so stash it
                 this.restoredFontIndex = value;
@@ -240,6 +184,9 @@ Alpine.data('converter', (a) => ({
      * @param file
      */
     loadFile(file) {
+        if (!file) {
+            return;
+        }
         return this.loadURL(URL.createObjectURL(file));
     },
 
@@ -247,11 +194,16 @@ Alpine.data('converter', (a) => ({
         this.loadFile(event.target.files[0]);
     },
 
+    /**
+     * Only a dropped file is handled here - text drops have to keep their
+     * default behaviour, otherwise dragging text into an input does nothing
+     */
     onDrop(event) {
-        const file = event.dataTransfer.files[0];
+        const file = event.dataTransfer?.files[0];
         if (!file) {
             return;
         }
+        event.preventDefault();
         this.inputType = 'file';
         this.loadFile(file);
     },
@@ -357,7 +309,8 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
-     * Return bitmap styles
+     * Return bitmap styles as bare CSS. It is bound with x-text into a style
+     * element, so remote stylesheet text is never parsed as HTML
      * @returns {string}
      */
     css() {
@@ -366,11 +319,11 @@ Alpine.data('converter', (a) => ({
         }
 
         let css = '';
-        this.fonts.forEach((font, index) => {
+        this.fonts.forEach((font) => {
             css += font.css;
         });
 
-        return `<style>${css}</style>`;
+        return css;
     },
 
     /**
@@ -407,10 +360,11 @@ Alpine.data('converter', (a) => ({
         const {rowStyles, cellStyles} = this.buildStyles();
 
         // Prepare HTML
+        const perRow = positiveInt(this.perRow);
         let letters = Array.from(this.effectiveCharacters());
         while (letters.length) {
             html += `<div class="line" style="${rowStyles}">`;
-            for (let i = 0; i < this.perRow && letters.length; i++) {
+            for (let i = 0; i < perRow && letters.length; i++) {
                 html += `<span class="cell" style="${cellStyles}">${letters.shift()}</span>`;
             }
             html += `</div>`;
@@ -479,8 +433,13 @@ Alpine.data('converter', (a) => ({
         }
     },
 
-    exportCode(name) {
-        exports[name](this);
+    async exportCode(name) {
+        try {
+            await exports[name](this);
+        } catch (e) {
+            console.error(e);
+            toast("Export failed!");
+        }
     },
 }))
 

@@ -47,6 +47,35 @@ test('renders the full character grid from a local font', async ({page}) => {
 
     await loadFixtureFont(page);
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
+    // the @font-face is bound with x-text, so make sure it still reaches the CSSOM
+    expect(await page.evaluate(() => [...document.fonts].map((font) => font.family))).toContain('font2bitmap');
+    expect(errors).toEqual([]);
+});
+
+test('a hostile shared link cannot freeze or script the page', async ({page}) => {
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+
+    // the hostile font URL has to resolve, otherwise the error banner replaces the grid
+    await page.route('https://example.com/**', (route) => route.fulfill({
+        path: FIXTURE_PATH,
+        contentType: 'font/woff2',
+    }));
+
+    const state = encodeURIComponent(JSON.stringify({
+        perRow: 0,
+        outlineWidth: 500,
+        fontUrl: 'https://example.com/</style><img src=x onerror=window.__xss=1>',
+        options: {outline: true},
+    }));
+
+    await page.goto('/?s=' + state);
+
+    // perRow 0 used to loop forever - clamped to 1, so every character gets its own line
+    await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT, {timeout: 10000});
+    await expect(page.locator('#preview .line')).toHaveCount(ASCII_COUNT);
+    await expect(page.locator('#outlineWidth')).toHaveValue('4');
+    expect(await page.evaluate(() => window.__xss)).toBeUndefined();
     expect(errors).toEqual([]);
 });
 

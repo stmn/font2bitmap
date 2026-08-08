@@ -1,6 +1,6 @@
 import download from "downloadjs";
 import JSZip from "jszip";
-import {toClipboard, toast} from "./helpers";
+import {positiveInt, toClipboard, toast} from "./helpers";
 
 /**
  * Reduce a CSS font-weight value to a single number usable in the
@@ -176,7 +176,7 @@ const buildBMFont = async (data) => {
     return scaleBMFont(buildBMFontData({
         font,
         characters: data.effectiveCharacters(),
-        perRow: parseInt(data.perRow),
+        perRow: positiveInt(data.perRow),
         gridWidth: parseInt(data.gridWidth),
         gridHeight: parseInt(data.gridHeight),
         fontSize: fontSize,
@@ -257,37 +257,40 @@ export default {
 
         data.disabledGridSize = true;
 
-        await data.$nextTick()
+        try {
+            await data.$nextTick()
 
-        document.querySelectorAll('#preview .cell').forEach(cell => {
-            let found = -1;
-            for (let i = 0; i < spacingData.length; i++) {
-                let width = spacingData[i][0];
+            document.querySelectorAll('#preview .cell').forEach(cell => {
+                let found = -1;
+                for (let i = 0; i < spacingData.length; i++) {
+                    let width = spacingData[i][0];
 
-                if (width === (Math.ceil(cell.offsetWidth))) {
-                    found = i;
-                    break;
+                    if (width === (Math.ceil(cell.offsetWidth))) {
+                        found = i;
+                        break;
+                    }
                 }
-            }
 
-            if (found === -1) {
-                let width = (Math.ceil(cell.offsetWidth));
-                biggestWidth = Math.max(biggestWidth, width);
-                spacingData.push([width, cell.textContent]);
-            } else {
-                spacingData[found][1] = (spacingData[found][1] + cell.textContent);
-            }
-        });
+                if (found === -1) {
+                    let width = (Math.ceil(cell.offsetWidth));
+                    biggestWidth = Math.max(biggestWidth, width);
+                    spacingData.push([width, cell.textContent]);
+                } else {
+                    spacingData[found][1] = (spacingData[found][1] + cell.textContent);
+                }
+            });
 
-        // fix null widths
-        spacingData = spacingData.map(data => {
-            if (data[0] === 0) {
-                data[0] = biggestWidth / 2;
-            }
-            return data;
-        })
-
-        data.disabledGridSize = false;
+            // fix null widths
+            spacingData = spacingData.map(entry => {
+                if (entry[0] === 0) {
+                    entry[0] = biggestWidth / 2;
+                }
+                return entry;
+            })
+        } finally {
+            // the grid must never stay collapsed, even if measuring throws
+            data.disabledGridSize = false;
+        }
 
         toClipboard(JSON.stringify(spacingData));
     },

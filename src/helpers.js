@@ -95,6 +95,25 @@ export const codepointsToCharacters = (codepoints) => [...new Set(codepoints ?? 
     .join('');
 
 /**
+ * Past this many characters the grid and the exports get slow enough
+ * that the user deserves a warning
+ */
+export const SLOW_CHARACTERS = 2000;
+
+/**
+ * What to tell the user after reading a font. Counted by codepoint, so a glyph
+ * made of a surrogate pair counts once
+ * @returns {string}
+ */
+export const glyphsLoadedMessage = (characters) => {
+    const glyphs = Array.from(characters).length;
+
+    return glyphs > SLOW_CHARACTERS
+        ? `${glyphs} glyphs loaded, exporting will be slow!`
+        : `${glyphs} glyphs loaded!`;
+}
+
+/**
  * Every codepoint the font binary maps, read from its cmap.
  * fontkit is imported lazily: it is bigger than the whole app and only needed
  * when this runs. Its browser build carries the brotli decoder woff2 needs

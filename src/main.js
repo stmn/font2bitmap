@@ -5,6 +5,7 @@ import {
     clampOutlineWidth,
     codepointsToCharacters,
     deserializeState,
+    glyphsLoadedMessage,
     isValidURL,
     loadFontCodepoints,
     outlineShadow,
@@ -65,12 +66,6 @@ const characterPresets = {
 };
 
 const PERSIST_DELAY = 300;
-
-/**
- * Past this many characters the grid and the exports get slow enough
- * that the user deserves a warning
- */
-const SLOW_CHARACTERS = 2000;
 
 window.googleFonts = Alpine.reactive({items: []})
 
@@ -198,11 +193,15 @@ Alpine.data('converter', (a) => ({
         }
 
         const {inputType, ...state} = this.savedSession;
+        const previousUrl = this.fontUrl;
+
         this.applyState(state);
 
-        // a changed URL reloads the font and takes the stashed variant with it,
-        // an unchanged one never does, so hand it over here
-        if (this.font()?.url === this.fontUrl) {
+        // a changed URL reloads the font and takes the stashed variant with it.
+        // An unchanged one never does, so hand it over here. Comparing the two
+        // fontUrl values is what decides it: a CSS URL and the binary the font
+        // ends up loaded from are never the same string
+        if (this.fontUrl === previousUrl) {
             this.fontIndex = this.takeRestoredFontIndex();
         }
     },
@@ -218,7 +217,9 @@ Alpine.data('converter', (a) => ({
                 return;
             }
 
-            this[key] = value;
+            // options and colors have to be copied, or the saved session ends
+            // up being the live object every later toggle writes into
+            this[key] = value && typeof value === 'object' ? {...value} : value;
         });
     },
 
@@ -391,13 +392,7 @@ Alpine.data('converter', (a) => ({
             }
 
             this.characters = characters;
-
-            // one glyph can be a surrogate pair, so codepoints are what counts
-            const glyphs = Array.from(characters).length;
-
-            toast(glyphs > SLOW_CHARACTERS
-                ? `${glyphs} glyphs loaded, exporting will be slow!`
-                : `${glyphs} glyphs loaded!`);
+            toast(glyphsLoadedMessage(characters));
         } catch (e) {
             console.error(e);
             toast("Could not read the glyphs of this font!");

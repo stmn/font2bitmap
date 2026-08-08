@@ -1,5 +1,10 @@
-import {describe, it, expect} from 'vitest';
+import {describe, it, expect, afterEach} from 'vitest';
 import {
+    glyphsLoadedMessage,
+    readStoredState,
+    STATE_STORAGE_KEY,
+    SLOW_CHARACTERS,
+    writeStoredState,
     parseFontFaces,
     isValidURL,
     outlineShadow,
@@ -104,6 +109,78 @@ describe('clampOutlineWidth', () => {
         expect(clampOutlineWidth(-10)).toBe(1);
         expect(clampOutlineWidth('')).toBe(1);
         expect(clampOutlineWidth('3')).toBe(3);
+    });
+});
+
+describe('stored state', () => {
+    afterEach(() => {
+        delete globalThis.window;
+    });
+
+    const withStorage = (localStorage) => {
+        globalThis.window = {localStorage};
+    };
+
+    it('round-trips a state object as plain JSON', () => {
+        const store = {};
+        withStorage({
+            getItem: (key) => store[key] ?? null,
+            setItem: (key, value) => {
+                store[key] = value;
+            },
+        });
+
+        writeStoredState({characters: 'AB', options: {outline: true}});
+
+        // plain JSON, the form deserializeState parses first
+        expect(store[STATE_STORAGE_KEY]).toBe('{"characters":"AB","options":{"outline":true}}');
+        expect(JSON.parse(readStoredState())).toEqual({characters: 'AB', options: {outline: true}});
+    });
+
+    it('returns null instead of throwing when storage is denied', () => {
+        withStorage({
+            getItem: () => {
+                throw new Error('SecurityError');
+            },
+            setItem: () => {
+                throw new Error('SecurityError');
+            },
+        });
+
+        expect(readStoredState()).toBeNull();
+        expect(() => writeStoredState({characters: 'AB'})).not.toThrow();
+    });
+
+    it('survives having no storage at all', () => {
+        expect(readStoredState()).toBeNull();
+        expect(() => writeStoredState({characters: 'AB'})).not.toThrow();
+    });
+});
+
+describe('glyphsLoadedMessage', () => {
+    it('reports what was loaded, without claiming an append', () => {
+        expect(glyphsLoadedMessage('ABC')).toBe('3 glyphs loaded!');
+    });
+
+    it('counts a surrogate pair as one glyph', () => {
+        expect(glyphsLoadedMessage('a\u{1f600}')).toBe('2 glyphs loaded!');
+    });
+
+    it('stays quiet right up to the threshold', () => {
+        const characters = 'x'.repeat(SLOW_CHARACTERS);
+        expect(glyphsLoadedMessage(characters)).toBe(`${SLOW_CHARACTERS} glyphs loaded!`);
+    });
+
+    it('warns about a set big enough to slow the export down', () => {
+        const characters = 'x'.repeat(SLOW_CHARACTERS + 1);
+        expect(glyphsLoadedMessage(characters)).toBe(`${SLOW_CHARACTERS + 1} glyphs loaded, exporting will be slow!`);
+    });
+
+    it('counts astral glyphs against the threshold once each', () => {
+        // twice the UTF-16 length of the threshold, still only threshold glyphs
+        const characters = '\u{1f600}'.repeat(SLOW_CHARACTERS);
+        expect(characters.length).toBe(SLOW_CHARACTERS * 2);
+        expect(glyphsLoadedMessage(characters)).toBe(`${SLOW_CHARACTERS} glyphs loaded!`);
     });
 });
 
@@ -231,6 +308,10 @@ describe('sanitizeState', () => {
     it('accepts only the known input types', () => {
         expect(sanitizeState({inputType: 'file'}, defaults()).inputType).toBe('file');
         expect(sanitizeState({inputType: 'evil'}, defaults()).inputType).toBeUndefined();
+    });
+
+    it('rejects lastSession, which is an action and not a source', () => {
+        expect(sanitizeState({inputType: 'lastSession'}, defaults()).inputType).toBeUndefined();
     });
 
     /**

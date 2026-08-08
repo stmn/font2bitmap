@@ -259,6 +259,72 @@ test('a saved session comes back only when it is asked for', async ({page}) => {
         .not.toContain('lastSession');
 });
 
+/**
+ * The snapshot used to be handed to the component by reference, so the nested
+ * options and colors objects were the very same ones the app then mutated
+ */
+test('restoring a session twice is not poisoned by the first restore', async ({page}) => {
+    await loadFixtureFont(page);
+    await page.fill('#characters', 'XYZ');
+    await waitForPersistedState(page, [['"characters":"XYZ"'], ['"showGrid":false']]);
+
+    await page.goto('/');
+    await page.check('#inputType_lastSession');
+    await expect(page.locator('#characters')).toHaveValue('XYZ');
+    await expect(page.locator('#showGrid')).not.toBeChecked();
+
+    await page.check('#showGrid');
+    await page.fill('#characters', 'Q');
+
+    // back to the very same snapshot, which the toggle must not have changed
+    await page.check('#inputType_fontUrl');
+    await page.check('#inputType_lastSession');
+    await expect(page.locator('#characters')).toHaveValue('XYZ');
+    await expect(page.locator('#showGrid')).not.toBeChecked();
+});
+
+/**
+ * A CSS font URL is never the URL of the binary the font ends up loaded from,
+ * so the stashed variant used to be dropped whenever the restored session kept
+ * the CSS URL that was already in the input
+ */
+test('a restored session keeps the selected font variant of a CSS URL', async ({page}) => {
+    const cssUrl = 'http://localhost:5199/multi.css';
+    await page.route(cssUrl, (route) => route.fulfill({
+        contentType: 'text/css',
+        body: `@font-face { font-family: 'Multi'; font-style: normal; font-weight: 400; src: url(${FIXTURE_URL}); }`
+            + `@font-face { font-family: 'Multi'; font-style: italic; font-weight: 700; src: url(${FIXTURE_URL}); }`,
+    }));
+
+    /**
+     * The page starts loading its default font on its own, so that one has to
+     * be done before the CSS URL is typed - two loads in flight race each other
+     */
+    const loadTwoVariants = async () => {
+        await page.goto('/');
+        await expect(page.locator('#preview .cell').first()).toBeVisible({timeout: 10000});
+
+        const css = page.waitForResponse(cssUrl);
+        await page.fill('#font', cssUrl);
+        await css;
+        await expect(page.locator('#floatingSelect')).toHaveValue('0');
+    };
+
+    await loadTwoVariants();
+    await page.selectOption('#floatingSelect', '1');
+    await page.fill('#characters', 'XYZ');
+    await waitForPersistedState(page, [['"fontIndex":1', '"fontIndex":"1"'], ['"characters":"XYZ"']]);
+
+    // same CSS URL as the one already in the input, so nothing reloads
+    await loadTwoVariants();
+
+    await page.check('#inputType_lastSession');
+    // the restore is one synchronous step, so the variant is settled as soon
+    // as the characters are - read it once, retrying would hide a late reload
+    await expect(page.locator('#characters')).toHaveValue('XYZ');
+    expect(await page.inputValue('#floatingSelect')).toBe('1');
+});
+
 test('the last session radio is disabled without a saved session', async ({page}) => {
     await page.goto('/');
     await page.evaluate(() => window.localStorage.clear());

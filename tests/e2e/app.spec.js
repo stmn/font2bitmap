@@ -156,6 +156,28 @@ test('a preset replaces the characters, even from the default set', async ({page
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
 });
 
+test('a "+" extension appends to the current set instead of replacing it', async ({page}) => {
+    await loadFixtureFont(page);
+    const before = await page.inputValue('#characters');
+
+    await page.click('#presetsDropdown');
+    await page.click('.dropdown-item:has-text("+ Polish")');
+
+    await expect(page.locator('#characters')).not.toHaveValue(before);
+    const after = await page.inputValue('#characters');
+    expect(after.length).toBeGreaterThan(before.length);
+    expect(after.startsWith(before)).toBe(true);
+    expect(after).toContain('ą');
+    expect(after).toContain('A');
+    await expect(page.locator('#preview .cell')).toHaveCount(Array.from(after).length);
+
+    // only what is missing gets added, so a second click changes nothing
+    await page.click('#presetsDropdown');
+    await page.click('.dropdown-item:has-text("+ Polish")');
+    await expect(page.locator('#characters')).toHaveValue(after);
+    expect(new Set(after).size).toBe(after.length);
+});
+
 test('all glyphs in font fills the characters from the font cmap', async ({page}) => {
     await loadFixtureFont(page);
     await page.fill('#characters', 'A');

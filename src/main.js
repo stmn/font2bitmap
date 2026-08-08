@@ -45,12 +45,21 @@ const optionsStyles = {
  */
 const DEFAULT_PRESET = 'ASCII (default)';
 
+/**
+ * A base set is the whole character set and replaces what is there, an
+ * extension only tops the current set up with what it is missing. The dropdown
+ * marks the second kind with a leading "+"
+ */
 const characterPresets = {
-    [DEFAULT_PRESET]: " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
-    'Digits': "0123456789",
-    'Uppercase': "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    'Polish': "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ",
-    'Latin-1': "¡¢£¥§©«®°±²³µ¶·»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ",
+    base: {
+        [DEFAULT_PRESET]: " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
+        'Digits': "0123456789",
+        'Uppercase': "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    },
+    extension: {
+        'Polish': "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ",
+        'Latin-1': "¡¢£¥§©«®°±²³µ¶·»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ",
+    },
 };
 
 const PERSIST_DELAY = 300;
@@ -73,7 +82,7 @@ Alpine.data('converter', (a) => ({
     disabledGridSize: false,
     fontSize: 24,
     exportScale: 1,
-    characters: characterPresets[DEFAULT_PRESET],
+    characters: characterPresets.base[DEFAULT_PRESET],
     sampleText: 'The quick brown fox jumps over the lazy dog 0123456789',
 
     // view only, never persisted
@@ -266,15 +275,29 @@ Alpine.data('converter', (a) => ({
         this.characters = this.uniqueCharacters();
     },
 
-    presetNames() {
-        return Object.keys(characterPresets);
+    /**
+     * @param group base or extension
+     * @returns {string[]}
+     */
+    presetNames(group) {
+        return Object.keys(characterPresets[group]);
     },
 
     /**
-     * Replace the current set with a preset
+     * Replace the current set with a base preset
      */
     setPreset(name) {
-        this.characters = characterPresets[name];
+        this.characters = characterPresets.base[name];
+    },
+
+    /**
+     * Top the current set up with the characters of an extension it is missing
+     */
+    addPreset(name) {
+        const missing = Array.from(characterPresets.extension[name])
+            .filter((char) => !this.characters.includes(char));
+
+        this.characters += missing.join("");
     },
 
     clearCharacters() {

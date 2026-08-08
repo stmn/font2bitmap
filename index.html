@@ -195,9 +195,16 @@
                 <a href="#" id="presetsDropdown" class="link-secondary text-decoration-none dropdown-toggle"
                    role="button" data-bs-toggle="dropdown" aria-expanded="false">Presets</a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="presetsDropdown">
-                    <template x-for="name in presetNames()">
+                    <!-- base sets replace the characters -->
+                    <template x-for="name in presetNames('base')">
                         <li><a class="dropdown-item" href="#" @click.prevent="setPreset(name)" x-text="name"></a></li>
                     </template>
+                    <li><hr class="dropdown-divider"></li>
+                    <!-- extensions only add what is missing -->
+                    <template x-for="name in presetNames('extension')">
+                        <li><a class="dropdown-item" href="#" @click.prevent="addPreset(name)" x-text="`+ ${name}`"></a></li>
+                    </template>
+                    <li><hr class="dropdown-divider"></li>
                     <li>
                         <a class="dropdown-item" href="#" id="allGlyphs"
                            :class="glyphsAvailable() ? '' : 'disabled'"

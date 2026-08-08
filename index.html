@@ -53,7 +53,8 @@
         }
 
         #characters {
-            height: 71px;
+            /* min-height, not height, so dragging the resize handle still works */
+            min-height: 90px;
             padding-right: var(--characters-tools-width);
         }
 
@@ -296,10 +297,27 @@
     </div>
 
     <!-- its own block on the page background, not buried in the white card
-         where a borderless white input is invisible -->
-    <div class="form-floating mt-2" x-show="advanced">
-        <input type="text" x-model="sampleText" class="form-control form-control-sm border-0" id="sampleText" placeholder="Sample">
-        <label for="sampleText">Sample text (preview only, not exported)</label>
+         where a borderless white input is invisible. The preview mode toggle
+         sits next to it, the sample text is what it switches to -->
+    <div class="row mt-2 align-items-center" x-show="advanced">
+        <div class="col">
+            <div class="form-floating">
+                <input type="text" x-model="sampleText" class="form-control form-control-sm border-0" id="sampleText" placeholder="Sample">
+                <label for="sampleText">Sample text (preview only, not exported)</label>
+            </div>
+        </div>
+        <!-- col-auto, not a d-flex wrapper: display utilities are !important
+             and would beat the inline display:none that x-show writes -->
+        <div class="col-auto" x-show="!loading && font() && !error">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Preview mode">
+                <button type="button" id="previewModeBitmap" class="btn"
+                        :class="previewMode === 'bitmap' ? 'btn-light' : 'btn-outline-light'"
+                        @click="previewMode = 'bitmap'">Bitmap</button>
+                <button type="button" id="previewModeSample" class="btn"
+                        :class="previewMode === 'sample' ? 'btn-light' : 'btn-outline-light'"
+                        @click="previewMode = 'sample'">Sample text</button>
+            </div>
+        </div>
     </div>
 
     <div class="text-center mt-3">
@@ -316,19 +334,6 @@
                 <li><a class="dropdown-item" @click="exportCode('construct')">Construct 3</a></li>
                 <li><a class="dropdown-item" @click="exportCode('kaplay')">KaPlay</a></li>
             </ul>
-        </div>
-    </div>
-
-    <!-- text-center, not d-flex: the latter is display:flex !important and would
-         beat the inline display:none that x-show writes -->
-    <div class="text-center" style="margin-top: 15px;" x-show="!loading && font() && !error">
-        <div class="btn-group btn-group-sm" role="group" aria-label="Preview mode">
-            <button type="button" id="previewModeBitmap" class="btn"
-                    :class="previewMode === 'bitmap' ? 'btn-light' : 'btn-outline-light'"
-                    @click="previewMode = 'bitmap'">Bitmap</button>
-            <button type="button" id="previewModeSample" class="btn"
-                    :class="previewMode === 'sample' ? 'btn-light' : 'btn-outline-light'"
-                    @click="previewMode = 'sample'">Sample text</button>
         </div>
     </div>
 

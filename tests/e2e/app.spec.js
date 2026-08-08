@@ -149,6 +149,11 @@ test('a preset replaces the characters, even from the default set', async ({page
     await page.click('#presetsDropdown');
     await page.click('.dropdown-item:has-text("Uppercase")');
     await expect(page.locator('#characters')).toHaveValue('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+
+    // the entry named after the starting set puts it back
+    await page.click('#presetsDropdown');
+    await page.click('.dropdown-item:has-text("ASCII (default)")');
+    await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
 });
 
 test('all glyphs in font fills the characters from the font cmap', async ({page}) => {
@@ -201,8 +206,9 @@ test('state survives a reload via the URL', async ({page}) => {
 test('the sample text preview replaces the grid and can be edited', async ({page}) => {
     await loadFixtureFont(page);
 
-    // the sample text input only exists behind the advanced options switch
+    // the sample text input and the mode toggle both live behind the switch
     await expect(page.locator('#sampleText')).toBeHidden();
+    await expect(page.locator('#previewModeSample')).toBeHidden();
     await page.check('#advanced');
     await expect(page.locator('#sampleText')).toHaveValue('The quick brown fox jumps over the lazy dog 0123456789');
     await page.fill('#sampleText', 'Hello');
@@ -216,8 +222,22 @@ test('the sample text preview replaces the grid and can be edited', async ({page
     await expect(page.locator('#sample-preview')).toBeHidden();
 });
 
+test('closing advanced options never strands the sample preview', async ({page}) => {
+    await loadFixtureFont(page);
+    await page.check('#advanced');
+    await page.click('#previewModeSample');
+    await expect(page.locator('#preview')).toBeHidden();
+
+    // the toggle goes away with the section, so the grid has to come back
+    await page.uncheck('#advanced');
+    await expect(page.locator('#previewModeBitmap')).toBeHidden();
+    await expect(page.locator('#sample-preview')).toBeHidden();
+    await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
+});
+
 test('the PNG still downloads while the sample preview is shown', async ({page}) => {
     await loadFixtureFont(page);
+    await page.check('#advanced');
     await page.click('#previewModeSample');
     await expect(page.locator('#preview')).toBeHidden();
 
@@ -231,14 +251,14 @@ test('the PNG still downloads while the sample preview is shown', async ({page})
 
 test('the advanced options switch hides the extra controls', async ({page}) => {
     await loadFixtureFont(page);
-    for (const id of ['colorText', 'colorBackground', 'exportScale', 'sampleText']) {
+    for (const id of ['colorText', 'colorBackground', 'exportScale', 'sampleText', 'previewModeBitmap']) {
         await expect(page.locator(`#${id}`)).toBeHidden();
     }
     // the plain switches stay reachable without advanced options
     await expect(page.locator('#centered')).toBeVisible();
 
     await page.check('#advanced');
-    for (const id of ['colorText', 'colorBackground', 'exportScale', 'sampleText']) {
+    for (const id of ['colorText', 'colorBackground', 'exportScale', 'sampleText', 'previewModeBitmap']) {
         await expect(page.locator(`#${id}`)).toBeVisible();
     }
 
@@ -289,7 +309,9 @@ const expectErrorBanner = async (page, brokenUrl) => {
     await page.fill('#font', brokenUrl);
     await expect(page.locator('.alert-danger')).toBeVisible({timeout: 10000});
     await expect(page.locator('#preview')).toHaveCount(0);
-    // nothing to preview, so the mode toggle goes away with the grid
+    // nothing to preview, so the mode toggle goes away with the grid even
+    // once the advanced section it lives in is open
+    await page.check('#advanced');
     await expect(page.locator('#previewModeBitmap')).toBeHidden();
 
     // and there is no font binary to read glyphs from

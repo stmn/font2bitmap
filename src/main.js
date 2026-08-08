@@ -40,8 +40,13 @@ const optionsStyles = {
     }
 }
 
+/**
+ * Preset the app starts with, so its menu entry says so
+ */
+const DEFAULT_PRESET = 'ASCII (default)';
+
 const characterPresets = {
-    'ASCII': " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
+    [DEFAULT_PRESET]: " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
     'Digits': "0123456789",
     'Uppercase': "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     'Polish': "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ",
@@ -68,7 +73,7 @@ Alpine.data('converter', (a) => ({
     disabledGridSize: false,
     fontSize: 24,
     exportScale: 1,
-    characters: characterPresets['ASCII'],
+    characters: characterPresets[DEFAULT_PRESET],
     sampleText: 'The quick brown fox jumps over the lazy dog 0123456789',
 
     // view only, never persisted
@@ -125,6 +130,14 @@ Alpine.data('converter', (a) => ({
         this.$watch('options', async () => {
             if (!this.options.antialiasing) {
                 this.options.subpixel = false;
+            }
+        })
+
+        // the mode toggle lives in the advanced section, so closing it would
+        // strand the user on a sample preview they can no longer switch back
+        this.$watch('advanced', (advanced) => {
+            if (!advanced) {
+                this.previewMode = 'bitmap';
             }
         })
 

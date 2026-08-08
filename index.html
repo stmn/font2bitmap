@@ -15,25 +15,168 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        #preview {
+        /* One frame for both previews, so switching between them only changes
+           what is inside it. Its top edge is the tab bar, which carries the
+           radius and the colour of the border. The sample is never captured in
+           the export, it lives outside the #preview the exporters read */
+        #preview,
+        #sample-preview {
             border: 5px solid #222C42;
+            border-top: 0;
             color: #fff;
-            border-radius: 10px;
+            border-radius: 0 0 10px 10px;
             padding: 15px;
             -webkit-font-smoothing: none;
+        }
+
+        /* A long sample must wrap instead of running off both sides of the page */
+        #sample-preview .line {
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         input[type=number], input[type=text] {
             max-height: 60px !important;
         }
 
+        /* The colour has to fill the control, leaving nothing but its border.
+           The Bootstrap stylesheet is linked after this block, so these need
+           the extra specificity to win. Size stays Bootstrap's, it matches the
+           inputs next to them */
+        input[type=color].form-control-color {
+            padding: 0;
+        }
+
+        input[type=color].form-control-color::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        input[type=color].form-control-color::-webkit-color-swatch {
+            border: 0;
+            border-radius: 0;
+        }
+
+        input[type=color].form-control-color::-moz-color-swatch {
+            border: 0;
+            border-radius: 0;
+        }
+
         body.downloading {
             background: transparent;
         }
 
+        /* The export is the glyphs and nothing else: no frame, and no rounded
+           corners eating the background colour out of them */
         body.downloading #preview {
             border: 0 !important;
+            border-radius: 0 !important;
             padding: 0 !important;
+        }
+
+        /* Single source of truth for the room the tools cluster needs */
+        :root {
+            --characters-tools-width: 215px;
+        }
+
+        #characters {
+            /* min-height, not height, so dragging the resize handle still works */
+            min-height: 90px;
+            padding-right: var(--characters-tools-width);
+        }
+
+        /* Minimal text controls floating over the top right corner of the textarea.
+           Only the links take pointer events, so clicking the corner or typing in
+           the textarea still works */
+        .characters-tools {
+            position: absolute;
+            top: 4px;
+            right: 8px;
+            z-index: 3;
+            font-size: 11px;
+            line-height: 1;
+            pointer-events: none;
+        }
+
+        .characters-tools a {
+            font-size: 11px;
+        }
+
+        .characters-tools a,
+        .characters-tools .dropdown {
+            pointer-events: auto;
+        }
+
+        /* No room for the counter on a narrow screen, so it goes and the
+           reserved padding shrinks with it */
+        @media (max-width: 575px) {
+            :root {
+                --characters-tools-width: 165px;
+            }
+
+            .characters-count {
+                display: none;
+            }
+        }
+
+        /* Bootstrap greys its hints for a light page, this one sits on the dark one */
+        #restoredFile {
+            color: #adb5bd;
+        }
+
+        /* The tab bar is the head of the preview window: the colour of the
+           frame, the frame's radius on top of it, and the active tab notched
+           out of it in the page colour, exactly like the preview it opens on.
+           Bootstrap draws its tabs for a light page, so all of it is redrawn */
+        #previewTabs {
+            background: #222C42;
+            border: 0;
+            border-radius: 10px 10px 0 0;
+            padding: 4px 5px 0;
+            gap: 3px;
+        }
+
+        #previewTabs .nav-link {
+            border: 0;
+            /* Bootstrap hangs its tabs a pixel over their pane, which only
+               shows once the pane has a background of its own */
+            margin-bottom: 0;
+            /* square at the bottom, where the tab meets the preview */
+            border-radius: 5px 5px 0 0;
+            padding: 2px 14px;
+            font-size: 13px;
+            color: #93a0bb;
+        }
+
+        #previewTabs .nav-link:hover {
+            color: #fff;
+        }
+
+        #previewTabs .nav-link.active {
+            background: #1D3557;
+            color: #fff;
+        }
+
+        /* Underlined only under the pointer. Not the text-decoration-none
+           utility: that one is !important and no hover rule could beat it */
+        #lastSession {
+            text-decoration: none;
+        }
+
+        #lastSession:hover {
+            text-decoration: underline;
+        }
+
+        /* Bootstrap only styles disabled buttons and nav links, not plain ones.
+           No pointer events means no hover underline either */
+        #lastSession.disabled {
+            opacity: .5;
+            pointer-events: none;
+        }
+
+        /* Icons ride along with the text they label: same colour, and lifted
+           off the baseline so they sit on the middle of the line */
+        svg.lucide {
+            vertical-align: -.2em;
         }
 
         [x-cloak] {
@@ -41,33 +184,51 @@
         }
     </style>
     <link href="//cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script type="module" crossorigin src="assets/index.658b8fba.js"></script>
+  <script type="module" crossorigin src="assets/index.de40c4dc.js"></script>
   <link rel="stylesheet" href="assets/index.d736c9a1.css">
 </head>
-<body draggable="false" style="user-select: none;" x-data="converter">
-<div x-html="css"></div>
+<body draggable="false" style="user-select: none;" x-data="converter"
+      @dragover.prevent @drop="onDrop($event)">
+<style x-text="css"></style>
 <div class="container bg-grey mt-3" x-cloak>
     <div class="row">
-        <div class="col" style="color: #fff; margin-bottom: 3px; font-size: 13px;">
+        <!-- one gap for the whole row instead of the margins form-check-inline
+             brings, so the label, both sources and the action line up evenly -->
+        <div class="col d-flex align-items-center flex-wrap gap-3" style="color: #fff; margin-bottom: 3px; font-size: 13px;">
             <b>Upload:</b>
-            <div class="form-check form-check-inline ms-1">
+            <div class="form-check mb-0">
                 <input x-model="inputType" class="form-check-input" type="radio" name="inputType_fontUrl" id="inputType_fontUrl" value="fontUrl" checked>
                 <label class="form-check-label" for="inputType_fontUrl">
-                    From URL
+                    <i data-lucide="link-2"></i> From URL
                 </label>
             </div>
-            <div class="form-check form-check-inline">
+            <div class="form-check mb-0">
                 <input x-model="inputType" class="form-check-input" type="radio" name="inputType_file" id="inputType_file" value="file">
                 <label class="form-check-label" for="inputType_file">
-                    From File
+                    <i data-lucide="file"></i> From File
                 </label>
             </div>
+            <!-- restoring is a one-shot action and not a source to stay on, so
+                 it is a link, and it sits away from the two sources. The title
+                 is on the wrapper: a disabled link takes no pointer events and
+                 would never show it itself -->
+            <span class="ms-auto" :title="hasSavedSession() ? '' : 'No saved session yet'">
+                <a href="#" id="lastSession" class="link-light"
+                   :class="hasSavedSession() ? '' : 'disabled'"
+                   :aria-disabled="hasSavedSession() ? 'false' : 'true'"
+                   :tabindex="hasSavedSession() ? false : '-1'"
+                   @click.prevent="restoreSavedSession()"><i data-lucide="history"></i> Restore last session</a>
+            </span>
         </div>
     </div>
     <div x-show="inputType==='file'" class="row">
         <div class="col">
             <div class="mb-3">
                 <input class="form-control" x-on:change="onFile($event)" type="file" id="file">
+                <!-- a file input cannot be filled from script, so a restored
+                     upload says what it loaded instead -->
+                <div class="form-text" id="restoredFile" x-show="restoredFontName"
+                     x-text="`Restored: ${restoredFontName}`"></div>
             </div>
         </div>
     </div>
@@ -100,7 +261,7 @@
     <div class="row">
         <div class="col">
             <div class="form-floating mb-3">
-                <input type="number" x-model="perRow" class="form-control form-control-sm border-0" id="perRow">
+                <input type="number" min="1" x-model="perRow" class="form-control form-control-sm border-0" id="perRow">
                 <label for="perRow">Per row</label>
             </div>
         </div>
@@ -124,19 +285,50 @@
         </div>
     </div>
 
-    <div class="form-floating mb-3">
-            <textarea x-model="characters" class="form-control form-control-sm border-0" id="characters"
-                      style="height: 71px;"></textarea>
+    <div class="form-floating mb-3 position-relative">
+            <textarea x-model="characters" class="form-control form-control-sm border-0" id="characters"></textarea>
         <label for="characters">Characters</label>
+        <div class="characters-tools d-flex align-items-center gap-2">
+            <span class="characters-count text-muted"
+                  x-text="`${uniqueCharacters().length} / ${characters.length}`"></span>
+            <a href="#" id="removeDuplicates" class="link-secondary text-decoration-none"
+               @click.prevent="removeDuplicates()">Remove duplicates</a>
+            <div class="dropdown">
+                <a href="#" id="presetsDropdown" class="link-secondary text-decoration-none dropdown-toggle"
+                   role="button" data-bs-toggle="dropdown" aria-expanded="false"><i data-lucide="type"></i> Presets</a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="presetsDropdown">
+                    <!-- base sets replace the characters -->
+                    <template x-for="name in presetNames('base')">
+                        <li><a class="dropdown-item" href="#" @click.prevent="setPreset(name)" x-text="name"></a></li>
+                    </template>
+                    <li><hr class="dropdown-divider"></li>
+                    <!-- extensions only add what is missing -->
+                    <template x-for="name in presetNames('extension')">
+                        <li><a class="dropdown-item" href="#" @click.prevent="addPreset(name)" x-text="`+ ${name}`"></a></li>
+                    </template>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item" href="#" id="allGlyphs"
+                           :class="glyphsAvailable() ? '' : 'disabled'"
+                           :aria-disabled="glyphsAvailable() ? 'false' : 'true'"
+                           :tabindex="glyphsAvailable() ? false : '-1'"
+                           @click.prevent="useAllGlyphs()"
+                           x-text="glyphsLoading ? 'Reading glyphs...' : 'All glyphs in font'"></a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#" @click.prevent="clearCharacters()"><i data-lucide="trash-2"></i> Clear</a></li>
+                </ul>
+            </div>
+        </div>
     </div>
 
     <div class="card p-2 px-3 border-0">
         <div class="">
             <div class="float-start">
                 <div class="form-check form-switch form-control-sm">
-                    <input class="form-check-input" x-model="options.shadow" type="checkbox" role="switch"
-                           id="shadow">
-                    <label class="form-check-label" for="shadow">Shadow</label>
+                    <input class="form-check-input" x-model="options.outline" type="checkbox" role="switch"
+                           id="outline">
+                    <label class="form-check-label" for="outline">Outline</label>
                 </div>
             </div>
             <div class="float-start ms-3">
@@ -144,13 +336,6 @@
                     <input class="form-check-input" x-model="options.antialiasing" type="checkbox" role="switch"
                            id="antialiasing">
                     <label class="form-check-label" for="antialiasing">Antialiasing</label>
-                </div>
-            </div>
-            <div class="float-start ms-3" x-show="options.antialiasing">
-                <div class="form-check form-switch form-control-sm">
-                    <input class="form-check-input" x-model="options.subpixel" type="checkbox" role="switch"
-                           id="subpixel">
-                    <label class="form-check-label" for="subpixel">Subpixel AA</label>
                 </div>
             </div>
             <div class="float-start ms-3">
@@ -174,25 +359,82 @@
                     <label class="form-check-label" for="showGrid">Show grid</label>
                 </div>
             </div>
+            <!-- not a rendering option like the ones before it, it opens the
+                 section below - but it is a switch and this is the switch row -->
             <div class="float-start ms-3">
                 <div class="form-check form-switch form-control-sm">
-                    <input class="form-check-input" x-model="options.removeDuplicates" type="checkbox" role="switch"
-                           id="removeDuplicates">
-                    <label class="form-check-label" for="removeDuplicates">Remove duplicates</label>
+                    <input class="form-check-input" x-model="advanced" type="checkbox" role="switch" id="advanced">
+                    <label class="form-check-label" for="advanced"><i data-lucide="sliders-horizontal"></i> More options</label>
                 </div>
             </div>
         </div>
     </div>
 
+    <div class="card p-2 px-3 border-0 mt-2" x-show="advanced">
+        <!-- No "sm" variants on the controls of this row: the small button and
+             select are a few pixels shorter than a colour swatch each, which
+             left the row ragged. Standard controls are all 38px tall.
+             form-control-sm on the wrapper only shrinks the labels -->
+        <div class="d-flex align-items-center gap-3 flex-wrap form-control-sm" id="advancedControls">
+            <div class="d-flex align-items-center gap-1">
+                <label for="colorText">Text</label>
+                <input type="color" class="form-control form-control-color" id="colorText" x-model="colors.text">
+            </div>
+            <!-- x-if, not x-show: Bootstrap's .d-flex is display:flex !important,
+                 so it would win over the inline display:none x-show writes -->
+            <template x-if="options.outline">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center gap-1">
+                        <label for="colorOutline">Outline</label>
+                        <input type="color" class="form-control form-control-color" id="colorOutline" x-model="colors.outline">
+                    </div>
+                    <div class="d-flex align-items-center gap-1">
+                        <label for="outlineWidth">Outline width</label>
+                        <input type="number" min="1" max="4" style="width: 70px;" class="form-control" id="outlineWidth" x-model="outlineWidth">
+                    </div>
+                </div>
+            </template>
+            <div class="d-flex align-items-center gap-1">
+                <label for="colorBackground">Background</label>
+                <input type="color" class="form-control form-control-color" id="colorBackground" x-model="colors.background">
+                <button class="btn btn-outline-secondary" @click="colors.background = ''">Transparent</button>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+                <label for="exportScale">Export scale</label>
+                <select class="form-select" style="width: 80px;" id="exportScale" x-model.number="exportScale">
+                    <option value="1">1x</option>
+                    <option value="2">2x</option>
+                    <option value="4">4x</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- its own block on the page background, not buried in the white card
+         where a borderless white input is invisible. What it feeds is the
+         sample tab above the preview -->
+    <div class="row mt-2" x-show="advanced">
+        <div class="col">
+            <div class="form-floating">
+                <input type="text" x-model="sampleText" class="form-control form-control-sm border-0" id="sampleText" placeholder="Sample">
+                <label for="sampleText">Sample text</label>
+            </div>
+        </div>
+    </div>
+
     <div class="text-center mt-3">
-        <button class="btn btn-success" style="font-weight: 800;" @click="download()">DOWNLOAD BITMAP FONT</button>
+        <button class="btn btn-success" style="font-weight: 800;" @click="download()"><i data-lucide="download"></i> DOWNLOAD BITMAP FONT</button>
         <div class="dropdown" style="display: inline-block;" >
             <button class="btn btn-success dropdown-toggle" style="height: 38px;" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">
-                Export
+                <i data-lucide="package"></i> Export
             </button>
             <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+                <li><a class="dropdown-item" @click="exportCode('bundle')">ZIP bundle (PNG + BMFont)</a></li>
+                <li><a class="dropdown-item" @click="exportCode('bmfontJson')">BMFont (JSON)</a></li>
+                <li><a class="dropdown-item" @click="exportCode('bmfontText')">BMFont (.fnt)</a></li>
+                <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" @click="exportCode('construct')">Construct 3</a></li>
-                <li><a class="dropdown-item" @click="exportCode('kaboom')">KaboomJS</a></li>
+                <li><a class="dropdown-item" @click="exportCode('kaplay')">KaPlay</a></li>
             </ul>
         </div>
     </div>
@@ -205,8 +447,31 @@
         </div>
         <div x-show="!loading">
             <template x-if="font() && !error">
-                <div x-html="html"
-                     :style="`font-family: '${font()?.name}'; font-weight: ${font()?.weight}; font-style: ${font()?.style};`"></div>
+                <!-- the object form of :style sets one property at a time. The
+                     string form rewrites the whole style attribute on every
+                     rebind, which threw away the display:none of x-show as soon
+                     as the font changed -->
+                <div>
+                    <!-- inside the same guard as the previews: tabs with
+                         nothing to switch between would only be noise -->
+                    <ul class="nav nav-tabs" id="previewTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button type="button" class="nav-link" id="previewModeBitmap" role="tab"
+                                    :class="previewMode === 'bitmap' ? 'active' : ''"
+                                    :aria-selected="previewMode === 'bitmap'"
+                                    @click="previewMode = 'bitmap'"><i data-lucide="image"></i> Bitmap</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button type="button" class="nav-link" id="previewModeSample" role="tab"
+                                    :class="previewMode === 'sample' ? 'active' : ''"
+                                    :aria-selected="previewMode === 'sample'"
+                                    @click="previewMode = 'sample'"><i data-lucide="type"></i> Sample text</button>
+                        </li>
+                    </ul>
+                    <div x-show="previewMode === 'bitmap'" x-html="html" :style="previewFont()"></div>
+                    <div x-show="previewMode === 'sample'" id="sample-preview" x-html="sampleHtml"
+                         :style="previewFont()"></div>
+                </div>
             </template>
             <template x-if="error">
                 <div class="alert alert-danger mb-0">

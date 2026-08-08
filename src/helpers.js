@@ -47,6 +47,13 @@ export const outlineShadow = (width, color) => {
 export const serializeState = (state) => encodeURIComponent(JSON.stringify(state));
 
 export const deserializeState = (raw) => {
+    // URLSearchParams already percent-decodes, so plain JSON is the normal case
+    try {
+        return JSON.parse(raw);
+    } catch (e) {
+        // fall through to the still-encoded form
+    }
+
     try {
         return JSON.parse(decodeURIComponent(raw));
     } catch (e) {

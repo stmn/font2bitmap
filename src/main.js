@@ -35,7 +35,62 @@ const characterPresets = {
     'Latin-1': "¡¢£¥§©«®°±²³µ¶·»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ",
 };
 
-const PERSISTED_KEYS = ['perRow', 'gridWidth', 'gridHeight', 'fontSize', 'exportScale', 'characters', 'sampleText', 'fontUrl', 'inputType', 'options', 'colors', 'outlineWidth'];
+const PERSISTED_KEYS = ['perRow', 'gridWidth', 'gridHeight', 'fontSize', 'exportScale', 'characters', 'sampleText', 'fontUrl', 'inputType', 'options', 'colors', 'outlineWidth', 'fontIndex'];
+
+const PERSIST_DELAY = 300;
+const EXPORT_SCALES = [1, 2, 4];
+const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/;
+
+const asInt = (value) => {
+    const number = parseInt(value);
+    return Number.isNaN(number) ? undefined : number;
+};
+
+const asString = (value) => typeof value === 'string' ? value : undefined;
+
+const asOneOf = (allowed) => (value) => allowed.includes(value) ? value : undefined;
+
+const asColor = (value) => value === '' || HEX_COLOR.test(String(value)) ? value : undefined;
+
+/**
+ * Merge saved values over the current object, keeping only known keys
+ * whose value survives the sanitizer
+ */
+const mergeSanitized = (saved, current, sanitize) => {
+    if (typeof saved !== 'object' || saved === null) {
+        return undefined;
+    }
+
+    const merged = {...current};
+    Object.keys(current).forEach((key) => {
+        const value = sanitize(saved[key]);
+        if (saved[key] !== undefined && value !== undefined) {
+            merged[key] = value;
+        }
+    });
+
+    return merged;
+};
+
+/**
+ * URL state is attacker controlled and ends up inside x-html style attributes,
+ * so every restored value has to be validated before it is assigned
+ */
+const STATE_SANITIZERS = {
+    perRow: asInt,
+    gridWidth: asInt,
+    gridHeight: asInt,
+    fontSize: asInt,
+    outlineWidth: asInt,
+    fontIndex: asInt,
+    exportScale: (value) => asOneOf(EXPORT_SCALES)(asInt(value)),
+    characters: asString,
+    sampleText: asString,
+    inputType: asOneOf(['fontUrl', 'file']),
+    fontUrl: (value) => isValidURL(value) ? value : undefined,
+    options: (value, current) => mergeSanitized(value, current, (option) => Boolean(option)),
+    colors: (value, current) => mergeSanitized(value, current, asColor),
+};
 
 window.googleFonts = Alpine.reactive({items: []})
 
@@ -76,6 +131,9 @@ Alpine.data('converter', (a) => ({
     fontIndex: 0,
     fonts: [],
 
+    restoredFontIndex: null,
+    persistTimeout: null,
+
     fontsList() {
         return googleFonts.items.map((font) => {
             return {
@@ -113,34 +171,68 @@ Alpine.data('converter', (a) => ({
     restoreState() {
         const raw = new URLSearchParams(window.location.search).get('s');
         const saved = raw ? deserializeState(raw) : null;
-        if (!saved) {
+        if (!saved || typeof saved !== 'object') {
             return;
         }
+
         PERSISTED_KEYS.forEach((key) => {
             if (saved[key] === undefined) {
                 return;
             }
-            if (typeof this[key] === 'object' && this[key] !== null) {
-                this[key] = {...this[key], ...saved[key]};
-            } else {
-                this[key] = saved[key];
+
+            const value = STATE_SANITIZERS[key](saved[key], this[key]);
+            if (value === undefined) {
+                return;
             }
+
+            if (key === 'fontIndex') {
+                // loadURL resets fontIndex once the fonts are fetched, so stash it
+                this.restoredFontIndex = value;
+                return;
+            }
+
+            this[key] = value;
         });
+    },
+
+    /**
+     * Font variant to select after a load, honouring a restored URL state once
+     * @returns {number}
+     */
+    takeRestoredFontIndex() {
+        const index = this.restoredFontIndex;
+        this.restoredFontIndex = null;
+        return index !== null && index >= 0 && index < this.uniqueFonts().length ? index : 0;
+    },
+
+    /**
+     * Queue a query string update, coalescing bursts of changes
+     */
+    persistState() {
+        clearTimeout(this.persistTimeout);
+        this.persistTimeout = setTimeout(() => this.writeState(), PERSIST_DELAY);
     },
 
     /**
      * Write the current configuration into the query string
      */
-    persistState() {
+    writeState() {
         const state = {};
         PERSISTED_KEYS.forEach((key) => {
             state[key] = this.unproxy(this[key]);
         });
-        if (String(state.fontUrl).startsWith('blob:')) {
+
+        // a locally uploaded font cannot be shared, so do not persist a stale source
+        if (state.inputType === 'file') {
             delete state.fontUrl;
             delete state.inputType;
         }
-        window.history.replaceState(null, '', '?s=' + serializeState(state));
+
+        try {
+            window.history.replaceState(null, '', '?s=' + serializeState(state));
+        } catch (e) {
+            // browsers throttle replaceState, dropping one update is harmless
+        }
     },
 
     /**
@@ -260,7 +352,7 @@ Alpine.data('converter', (a) => ({
         }
 
         this.fonts = fonts;
-        this.fontIndex = 0;
+        this.fontIndex = this.takeRestoredFontIndex();
         this.loading = false;
     },
 

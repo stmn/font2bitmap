@@ -55,6 +55,17 @@ describe('state serialization', () => {
         expect(deserializeState(serializeState(state))).toEqual(state);
     });
 
+    it('survives the full query string cycle with percent signs', () => {
+        const state = {characters: ' !"#$%&\'()*+,-./', colors: {background: '#000000'}, perRow: 19};
+        const raw = new URLSearchParams('?s=' + serializeState(state)).get('s');
+        expect(deserializeState(raw)).toEqual(state);
+    });
+
+    it('reads percent-encoded payloads too', () => {
+        const state = {characters: 'a%41b'};
+        expect(deserializeState(serializeState(state))).toEqual(state);
+    });
+
     it('returns null for garbage', () => {
         expect(deserializeState('not%valid%json')).toBeNull();
         expect(deserializeState('')).toBeNull();

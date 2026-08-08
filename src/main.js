@@ -48,6 +48,7 @@ Alpine.data('converter', (a) => ({
     fontSize: 24,
     exportScale: 1,
     characters: characterPresets['ASCII'],
+    sampleText: '',
 
     inputType: 'fontUrl', // fontUrl or file
     fontUrl: 'https://fonts.gstatic.com/s/pressstart2p/v14/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2',
@@ -221,19 +222,17 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
-     * Return bitmap HTML
-     * @returns {string}
+     * Build row/cell styles from current options
+     * @returns {{rowStyles: string, cellStyles: string}}
      */
-    html() {
-        let html = '';
+    buildStyles({fixedGrid = true} = {}) {
         let rowStyles = `display:flex; font-size: ${this.fontSize}px; color: ${this.colors.text};`;
         let cellStyles = `display:flex; align-items: flex-end;`;
 
-        if (!this.disabledGridSize) {
+        if (fixedGrid && !this.disabledGridSize) {
             cellStyles += `width: ${this.gridWidth}px; height: ${this.gridHeight}px;`;
         }
 
-        // Prepare styles
         for (const [key] of Object.entries(this.options).filter(([key, value]) => value)) {
             const {cellStyles: cs, rowStyles: rs} = optionsStyles[key] ?? {};
             if (cs) {
@@ -243,6 +242,17 @@ Alpine.data('converter', (a) => ({
                 rowStyles += rs(this);
             }
         }
+
+        return {rowStyles, cellStyles};
+    },
+
+    /**
+     * Return bitmap HTML
+     * @returns {string}
+     */
+    html() {
+        let html = '';
+        const {rowStyles, cellStyles} = this.buildStyles();
 
         // Prepare HTML
         let letters = Array.from(this.effectiveCharacters());
@@ -255,6 +265,21 @@ Alpine.data('converter', (a) => ({
         }
 
         return `<div id="preview" style="${this.colors.background ? 'background: ' + this.colors.background + ';' : ''}">${html}</div>`;
+    },
+
+    /**
+     * Sample text rendered with the same styling as the grid
+     * @returns {string}
+     */
+    sampleHtml() {
+        if (!this.sampleText) {
+            return '';
+        }
+        const {rowStyles, cellStyles} = this.buildStyles({fixedGrid: false});
+        const cells = Array.from(this.sampleText)
+            .map((char) => `<span class="cell" style="${cellStyles}">${char === ' ' ? '&nbsp;' : char}</span>`)
+            .join('');
+        return `<div class="line" style="${rowStyles}">${cells}</div>`;
     },
 
     /**

@@ -48,7 +48,7 @@ Alpine.data('converter', (a) => ({
     disabledGridSize: false,
     fontSize: 24,
     exportScale: 1,
-    characters: " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
+    characters: characterPresets['ASCII'],
 
     inputType: 'fontUrl', // fontUrl or file
     fontUrl: 'https://fonts.gstatic.com/s/pressstart2p/v14/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2',

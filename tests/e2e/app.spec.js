@@ -431,6 +431,37 @@ test('the sample text preview replaces the grid and can be edited', async ({page
     await expect(page.locator('#sample-preview')).toBeHidden();
 });
 
+/**
+ * The font bindings used to be a string :style, and Alpine rewrites the whole
+ * style attribute for those, so every font change threw away the display:none
+ * that x-show had written and the sample preview popped up on its own
+ */
+test('changing the font leaves the hidden preview hidden', async ({page}) => {
+    const otherUrl = 'http://localhost:5199/other.css';
+    const thirdUrl = 'http://localhost:5199/third.css';
+    await routeCssFont(page, otherUrl, 'OtherFont');
+    await routeCssFont(page, thirdUrl, 'ThirdFont');
+
+    await loadFixtureFont(page);
+    await expect(page.locator('#sample-preview')).toBeHidden();
+
+    await page.fill('#font', otherUrl);
+    await expect.poll(() => loadedFontName(page)).toBe('OtherFont');
+
+    await expect(page.locator('#sample-preview')).toBeHidden();
+    await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
+
+    // and the other way round, the grid must not come back in sample mode
+    await page.check('#advanced');
+    await page.click('#previewModeSample');
+    await expect(page.locator('#preview')).toBeHidden();
+
+    await page.fill('#font', thirdUrl);
+    await expect.poll(() => loadedFontName(page)).toBe('ThirdFont');
+    await expect(page.locator('#preview')).toBeHidden();
+    await expect(page.locator('#sample-preview')).toBeVisible();
+});
+
 test('closing advanced options never strands the sample preview', async ({page}) => {
     await loadFixtureFont(page);
     await page.check('#advanced');

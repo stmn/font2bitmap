@@ -542,6 +542,21 @@ Alpine.data('converter', (a) => ({
     },
 
     /**
+     * Font of the current variant, as a style object. Both previews bind it,
+     * and the object form only ever touches the properties it names
+     * @returns {Object}
+     */
+    previewFont() {
+        const font = this.font();
+
+        return {
+            'font-family': `'${font?.name}'`,
+            'font-weight': font?.weight,
+            'font-style': font?.style,
+        };
+    },
+
+    /**
      * Sample text rendered with the same styling as the grid
      * @returns {string}
      */

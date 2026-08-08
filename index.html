@@ -38,6 +38,28 @@
             max-height: 60px !important;
         }
 
+        /* The colour has to fill the control, leaving nothing but its border.
+           The Bootstrap stylesheet is linked after this block, so these need
+           the extra specificity to win. Size stays Bootstrap's, it matches the
+           inputs next to them */
+        input[type=color].form-control-color {
+            padding: 0;
+        }
+
+        input[type=color].form-control-color::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        input[type=color].form-control-color::-webkit-color-swatch {
+            border: 0;
+            border-radius: 0;
+        }
+
+        input[type=color].form-control-color::-moz-color-swatch {
+            border: 0;
+            border-radius: 0;
+        }
+
         body.downloading {
             background: transparent;
         }
@@ -319,7 +341,7 @@
         <div class="col">
             <div class="form-floating">
                 <input type="text" x-model="sampleText" class="form-control form-control-sm border-0" id="sampleText" placeholder="Sample">
-                <label for="sampleText">Sample text (preview only, not exported)</label>
+                <label for="sampleText">Sample text</label>
             </div>
         </div>
         <!-- col-auto, not a d-flex wrapper: display utilities are !important
@@ -361,11 +383,14 @@
         </div>
         <div x-show="!loading">
             <template x-if="font() && !error">
+                <!-- the object form of :style sets one property at a time. The
+                     string form rewrites the whole style attribute on every
+                     rebind, which threw away the display:none of x-show as soon
+                     as the font changed -->
                 <div>
-                    <div x-show="previewMode === 'bitmap'" x-html="html"
-                         :style="`font-family: '${font()?.name}'; font-weight: ${font()?.weight}; font-style: ${font()?.style};`"></div>
+                    <div x-show="previewMode === 'bitmap'" x-html="html" :style="previewFont()"></div>
                     <div x-show="previewMode === 'sample'" id="sample-preview" x-html="sampleHtml"
-                         :style="`font-family: '${font()?.name}'; font-weight: ${font()?.weight}; font-style: ${font()?.style};`"></div>
+                         :style="previewFont()"></div>
                 </div>
             </template>
             <template x-if="error">

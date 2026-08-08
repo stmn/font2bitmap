@@ -609,6 +609,22 @@ test('the upload row lines up and its restore link underlines on hover', async (
 });
 
 /**
+ * The tab icons live in an x-if template, which is cloned on every render, so
+ * they have to be turned into SVG before the first clone or they never are
+ */
+test('every icon is rendered, inside the dynamic blocks too', async ({page}) => {
+    await loadFixtureFont(page);
+
+    // nothing left waiting to be replaced
+    await expect(page.locator('i[data-lucide]')).toHaveCount(0);
+    await expect(page.locator('#previewModeBitmap svg.lucide')).toHaveCount(1);
+    await expect(page.locator('#previewModeSample svg.lucide')).toHaveCount(1);
+    await expect(page.locator('#lastSession svg.lucide')).toHaveCount(1);
+    // and they wear the colour of the text they label
+    await expect(page.locator('#lastSession svg.lucide')).toHaveAttribute('stroke', 'currentColor');
+});
+
+/**
  * The cell borders draw the grid the exported sheet is cut along, so they are
  * the bitmap's business - on the sample they were white boxes around letters
  */

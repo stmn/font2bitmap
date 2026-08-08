@@ -21,6 +21,7 @@
     "fontkit": "^2.0.4",
     "html-to-image": "^1.11.11",
     "jszip": "^3.10.1",
+    "lucide": "^1.30.0",
     "toastify-js": "^1.12.0"
   }
 }

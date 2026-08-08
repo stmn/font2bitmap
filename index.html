@@ -170,6 +170,12 @@
             pointer-events: none;
         }
 
+        /* Icons ride along with the text they label: same colour, and lifted
+           off the baseline so they sit on the middle of the line */
+        svg.lucide {
+            vertical-align: -.2em;
+        }
+
         [x-cloak] {
             display: none !important;
         }
@@ -188,13 +194,13 @@
             <div class="form-check mb-0">
                 <input x-model="inputType" class="form-check-input" type="radio" name="inputType_fontUrl" id="inputType_fontUrl" value="fontUrl" checked>
                 <label class="form-check-label" for="inputType_fontUrl">
-                    From URL
+                    <i data-lucide="link-2"></i> From URL
                 </label>
             </div>
             <div class="form-check mb-0">
                 <input x-model="inputType" class="form-check-input" type="radio" name="inputType_file" id="inputType_file" value="file">
                 <label class="form-check-label" for="inputType_file">
-                    From File
+                    <i data-lucide="file"></i> From File
                 </label>
             </div>
             <!-- restoring is a one-shot action and not a source to stay on, so
@@ -206,7 +212,7 @@
                    :class="hasSavedSession() ? '' : 'disabled'"
                    :aria-disabled="hasSavedSession() ? 'false' : 'true'"
                    :tabindex="hasSavedSession() ? false : '-1'"
-                   @click.prevent="restoreSavedSession()">Restore last session</a>
+                   @click.prevent="restoreSavedSession()"><i data-lucide="history"></i> Restore last session</a>
             </span>
         </div>
     </div>
@@ -284,7 +290,7 @@
                @click.prevent="removeDuplicates()">Remove duplicates</a>
             <div class="dropdown">
                 <a href="#" id="presetsDropdown" class="link-secondary text-decoration-none dropdown-toggle"
-                   role="button" data-bs-toggle="dropdown" aria-expanded="false">Presets</a>
+                   role="button" data-bs-toggle="dropdown" aria-expanded="false"><i data-lucide="type"></i> Presets</a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="presetsDropdown">
                     <!-- base sets replace the characters -->
                     <template x-for="name in presetNames('base')">
@@ -305,7 +311,7 @@
                            x-text="glyphsLoading ? 'Reading glyphs...' : 'All glyphs in font'"></a>
                     </li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="#" @click.prevent="clearCharacters()">Clear</a></li>
+                    <li><a class="dropdown-item" href="#" @click.prevent="clearCharacters()"><i data-lucide="trash-2"></i> Clear</a></li>
                 </ul>
             </div>
         </div>
@@ -353,7 +359,7 @@
             <div class="float-start ms-3">
                 <div class="form-check form-switch form-control-sm">
                     <input class="form-check-input" x-model="advanced" type="checkbox" role="switch" id="advanced">
-                    <label class="form-check-label" for="advanced">More options</label>
+                    <label class="form-check-label" for="advanced"><i data-lucide="sliders-horizontal"></i> More options</label>
                 </div>
             </div>
         </div>
@@ -412,10 +418,10 @@
     </div>
 
     <div class="text-center mt-3">
-        <button class="btn btn-success" style="font-weight: 800;" @click="download()">DOWNLOAD BITMAP FONT</button>
+        <button class="btn btn-success" style="font-weight: 800;" @click="download()"><i data-lucide="download"></i> DOWNLOAD BITMAP FONT</button>
         <div class="dropdown" style="display: inline-block;" >
             <button class="btn btn-success dropdown-toggle" style="height: 38px;" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">
-                Export
+                <i data-lucide="package"></i> Export
             </button>
             <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
                 <li><a class="dropdown-item" @click="exportCode('bundle')">ZIP bundle (PNG + BMFont)</a></li>
@@ -448,13 +454,13 @@
                             <button type="button" class="nav-link" id="previewModeBitmap" role="tab"
                                     :class="previewMode === 'bitmap' ? 'active' : ''"
                                     :aria-selected="previewMode === 'bitmap'"
-                                    @click="previewMode = 'bitmap'">Bitmap</button>
+                                    @click="previewMode = 'bitmap'"><i data-lucide="image"></i> Bitmap</button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button type="button" class="nav-link" id="previewModeSample" role="tab"
                                     :class="previewMode === 'sample' ? 'active' : ''"
                                     :aria-selected="previewMode === 'sample'"
-                                    @click="previewMode = 'sample'">Sample text</button>
+                                    @click="previewMode = 'sample'"><i data-lucide="type"></i> Sample text</button>
                         </li>
                     </ul>
                     <div x-show="previewMode === 'bitmap'" x-html="html" :style="previewFont()"></div>

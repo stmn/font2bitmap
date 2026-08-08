@@ -23,7 +23,25 @@ import {
     writeStoredState
 } from "./helpers";
 import exports from "./exports";
+import {
+    createIcons,
+    Download,
+    File as FileIcon,
+    History,
+    Image as ImageIcon,
+    Link2,
+    Package,
+    SlidersHorizontal,
+    Trash2,
+    Type,
+} from "lucide";
 import "toastify-js/src/toastify.css"
+
+/**
+ * Only the icons the markup asks for, named as the data-lucide attributes spell
+ * them. Importing the whole set instead would bundle every icon lucide has
+ */
+const ICONS = {Download, File: FileIcon, History, Image: ImageIcon, Link2, Package, SlidersHorizontal, Trash2, Type};
 
 
 const optionsStyles = {
@@ -710,5 +728,9 @@ Alpine.data('converter', (a) => ({
         }
     },
 }))
+
+// before Alpine, and into the templates as well: x-if clones their content
+// every time it renders, so the icons have to be in there before the first one
+createIcons({icons: ICONS, inTemplates: true, attrs: {width: 16, height: 16}});
 
 Alpine.start()

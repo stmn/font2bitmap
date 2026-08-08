@@ -16,13 +16,15 @@
         }
 
         /* One frame for both previews, so switching between them only changes
-           what is inside it. The sample is never captured in the export, it
-           lives outside the #preview the exporters read */
+           what is inside it. Its top edge is the tab bar, which carries the
+           radius and the colour of the border. The sample is never captured in
+           the export, it lives outside the #preview the exporters read */
         #preview,
         #sample-preview {
             border: 5px solid #222C42;
+            border-top: 0;
             color: #fff;
-            border-radius: 10px;
+            border-radius: 0 0 10px 10px;
             padding: 15px;
             -webkit-font-smoothing: none;
         }
@@ -63,8 +65,11 @@
             background: transparent;
         }
 
+        /* The export is the glyphs and nothing else: no frame, and no rounded
+           corners eating the background colour out of them */
         body.downloading #preview {
             border: 0 !important;
+            border-radius: 0 !important;
             padding: 0 !important;
         }
 
@@ -118,18 +123,25 @@
             color: #adb5bd;
         }
 
-        /* Tabs on the dark page, reading as the top edge of the preview frame
-           they sit on. Bootstrap draws them for a light background */
+        /* The tab bar is the head of the preview window: the colour of the
+           frame, the frame's radius on top of it, and the active tab notched
+           out of it in the page colour, exactly like the preview it opens on.
+           Bootstrap draws its tabs for a light page, so all of it is redrawn */
         #previewTabs {
-            border-bottom: 0;
+            background: #222C42;
+            border: 0;
+            border-radius: 10px 10px 0 0;
+            padding: 4px 5px 0;
+            gap: 3px;
         }
 
         #previewTabs .nav-link {
             border: 0;
-            border-radius: 8px 8px 0 0;
-            padding: 3px 14px;
+            /* square at the bottom, where the tab meets the preview */
+            border-radius: 5px 5px 0 0;
+            padding: 2px 14px;
             font-size: 13px;
-            color: #adb5bd;
+            color: #93a0bb;
         }
 
         #previewTabs .nav-link:hover {
@@ -137,11 +149,22 @@
         }
 
         #previewTabs .nav-link.active {
-            background: #222C42;
+            background: #1D3557;
             color: #fff;
         }
 
-        /* Bootstrap only styles disabled buttons and nav links, not plain ones */
+        /* Underlined only under the pointer. Not the text-decoration-none
+           utility: that one is !important and no hover rule could beat it */
+        #lastSession {
+            text-decoration: none;
+        }
+
+        #lastSession:hover {
+            text-decoration: underline;
+        }
+
+        /* Bootstrap only styles disabled buttons and nav links, not plain ones.
+           No pointer events means no hover underline either */
         #lastSession.disabled {
             opacity: .5;
             pointer-events: none;
@@ -158,29 +181,32 @@
 <style x-text="css"></style>
 <div class="container bg-grey mt-3" x-cloak>
     <div class="row">
-        <div class="col d-flex align-items-center flex-wrap" style="color: #fff; margin-bottom: 3px; font-size: 13px;">
+        <!-- one gap for the whole row instead of the margins form-check-inline
+             brings, so the label, both sources and the action line up evenly -->
+        <div class="col d-flex align-items-center flex-wrap gap-3" style="color: #fff; margin-bottom: 3px; font-size: 13px;">
             <b>Upload:</b>
-            <div class="form-check form-check-inline ms-1">
+            <div class="form-check mb-0">
                 <input x-model="inputType" class="form-check-input" type="radio" name="inputType_fontUrl" id="inputType_fontUrl" value="fontUrl" checked>
                 <label class="form-check-label" for="inputType_fontUrl">
                     From URL
                 </label>
             </div>
-            <div class="form-check form-check-inline">
+            <div class="form-check mb-0">
                 <input x-model="inputType" class="form-check-input" type="radio" name="inputType_file" id="inputType_file" value="file">
                 <label class="form-check-label" for="inputType_file">
                     From File
                 </label>
             </div>
             <!-- restoring is a one-shot action and not a source to stay on, so
-                 it is a link. The title sits on the wrapper: a disabled link
-                 takes no pointer events and would never show it itself -->
-            <span :title="hasSavedSession() ? '' : 'No saved session yet'">
-                <a href="#" id="lastSession" class="link-light text-decoration-none"
+                 it is a link, and it sits away from the two sources. The title
+                 is on the wrapper: a disabled link takes no pointer events and
+                 would never show it itself -->
+            <span class="ms-auto" :title="hasSavedSession() ? '' : 'No saved session yet'">
+                <a href="#" id="lastSession" class="link-light"
                    :class="hasSavedSession() ? '' : 'disabled'"
                    :aria-disabled="hasSavedSession() ? 'false' : 'true'"
                    :tabindex="hasSavedSession() ? false : '-1'"
-                   @click.prevent="restoreSavedSession()">Last session</a>
+                   @click.prevent="restoreSavedSession()">Restore last session</a>
             </span>
         </div>
     </div>
@@ -299,13 +325,6 @@
                     <input class="form-check-input" x-model="options.antialiasing" type="checkbox" role="switch"
                            id="antialiasing">
                     <label class="form-check-label" for="antialiasing">Antialiasing</label>
-                </div>
-            </div>
-            <div class="float-start ms-3" x-show="options.antialiasing">
-                <div class="form-check form-switch form-control-sm">
-                    <input class="form-check-input" x-model="options.subpixel" type="checkbox" role="switch"
-                           id="subpixel">
-                    <label class="form-check-label" for="subpixel">Subpixel AA</label>
                 </div>
             </div>
             <div class="float-start ms-3">

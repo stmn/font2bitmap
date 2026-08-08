@@ -36,13 +36,14 @@ const optionsStyles = {
     antialiasing: {
         cellStyles: () => `-webkit-font-smoothing: antialiased;`
     },
-    subpixel: {
-        cellStyles: () => `-webkit-font-smoothing: subpixel-antialiased;`
-    },
     showGrid: {
+        // the cell borders draw the export grid, which the sample has none of
+        gridOnly: true,
         cellStyles: () => `border: 1px solid #fff`,
     },
     centered: {
+        // the sample keeps this one: without fixed cells it decides nothing
+        // but how the glyphs sit on their line, which the sample has too
         cellStyles: () => `justify-content: center !important; align-items: center !important;`
     }
 }
@@ -106,7 +107,6 @@ Alpine.data('converter', (a) => ({
     options: {
         outline: false,
         antialiasing: false,
-        subpixel: false,
         italic: false,
         centered: true,
         showGrid: false,
@@ -155,12 +155,6 @@ Alpine.data('converter', (a) => ({
                 // whatever upload was restored is not what is loaded any more
                 this.restoredFontName = null;
                 await this.loadURL(this.fontUrl);
-            }
-        })
-
-        this.$watch('options', async () => {
-            if (!this.options.antialiasing) {
-                this.options.subpixel = false;
             }
         })
 
@@ -562,18 +556,23 @@ Alpine.data('converter', (a) => ({
 
     /**
      * Build row/cell styles from current options
+     * @param grid the export grid, the only view with cells of a fixed size and
+     * the only one the grid-only options say anything about
      * @returns {{rowStyles: string, cellStyles: string}}
      */
-    buildStyles({fixedGrid = true} = {}) {
+    buildStyles({grid = true} = {}) {
         let rowStyles = `display:flex; font-size: ${this.fontSize}px; color: ${this.colors.text};`;
         let cellStyles = `display:flex; align-items: flex-end;`;
 
-        if (fixedGrid && !this.disabledGridSize) {
+        if (grid && !this.disabledGridSize) {
             cellStyles += `width: ${this.gridWidth}px; height: ${this.gridHeight}px;`;
         }
 
         for (const [key] of Object.entries(this.options).filter(([key, value]) => value)) {
-            const {cellStyles: cs, rowStyles: rs} = optionsStyles[key] ?? {};
+            const {cellStyles: cs, rowStyles: rs, gridOnly} = optionsStyles[key] ?? {};
+            if (gridOnly && !grid) {
+                continue;
+            }
             if (cs) {
                 cellStyles += cs(this);
             }
@@ -633,7 +632,7 @@ Alpine.data('converter', (a) => ({
         if (!this.sampleText) {
             return '';
         }
-        const {rowStyles, cellStyles} = this.buildStyles({fixedGrid: false});
+        const {rowStyles, cellStyles} = this.buildStyles({grid: false});
         const cells = Array.from(this.sampleText)
             .map((char) => `<span class="cell" style="${cellStyles}">${char === ' ' ? '&nbsp;' : char}</span>`)
             .join('');

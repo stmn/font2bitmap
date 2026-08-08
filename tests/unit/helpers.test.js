@@ -371,7 +371,9 @@ describe('sanitizeState', () => {
     });
 
     it('coerces options to booleans and keeps unknown options out', () => {
-        const clean = sanitizeState({options: {outline: 'yes', nope: true}}, defaults());
+        // subpixel is an option the app used to have: a link still carrying it
+        // is dropped by the merge, which only knows the options of today
+        const clean = sanitizeState({options: {outline: 'yes', nope: true, subpixel: true}}, defaults());
         expect(clean.options).toEqual({outline: true, centered: true});
     });
 

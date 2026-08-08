@@ -111,11 +111,11 @@ test('toggling every option keeps the preview alive', async ({page}) => {
     page.on('pageerror', (error) => errors.push(error));
 
     await loadFixtureFont(page);
-    for (const id of ['outline', 'antialiasing', 'subpixel', 'italic', 'centered', 'showGrid']) {
+    for (const id of ['outline', 'antialiasing', 'italic', 'centered', 'showGrid']) {
         await page.check(`#${id}`);
     }
     await expect(page.locator('#preview .cell').first()).toBeVisible();
-    for (const id of ['showGrid', 'subpixel', 'antialiasing', 'outline']) {
+    for (const id of ['showGrid', 'antialiasing', 'outline']) {
         await page.uncheck(`#${id}`);
     }
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
@@ -579,10 +579,50 @@ test('the last session link is disabled without a saved session', async ({page})
     const link = page.locator('#lastSession');
     await expect(link).toHaveClass(/disabled/);
     await expect(link).toHaveAttribute('aria-disabled', 'true');
+    // no pointer events, so it cannot be hovered into an underline either
     await expect(link).toHaveCSS('pointer-events', 'none');
+    await expect(link).toHaveCSS('text-decoration-line', 'none');
     // a disabled link has to drop out of the tab order too
     await expect(link).toHaveAttribute('tabindex', '-1');
     await expect(link.locator('..')).toHaveAttribute('title', 'No saved session yet');
+});
+
+test('the upload row lines up and its restore link underlines on hover', async ({page}) => {
+    await loadFixtureFont(page);
+    await page.fill('#characters', 'XYZ');
+    await waitForPersistedState(page, [['"characters":"XYZ"']]);
+    await page.goto('/');
+
+    // the label, both sources and the action sit on one line
+    const centers = await page.evaluate(() => ['inputType_fontUrl', 'inputType_file', 'lastSession']
+        .map((id) => {
+            const box = document.getElementById(id).getBoundingClientRect();
+            return box.top + box.height / 2;
+        }));
+    expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(2);
+
+    const link = page.locator('#lastSession');
+    await expect(link).toHaveText('Restore last session');
+    await expect(link).toHaveCSS('text-decoration-line', 'none');
+    await link.hover();
+    await expect(link).toHaveCSS('text-decoration-line', 'underline');
+});
+
+/**
+ * The cell borders draw the grid the exported sheet is cut along, so they are
+ * the bitmap's business - on the sample they were white boxes around letters
+ */
+test('the show grid option does not leak into the sample preview', async ({page}) => {
+    await loadFixtureFont(page);
+    await page.check('#advanced');
+    await page.fill('#sampleText', 'Hi');
+    await page.check('#showGrid');
+    await expect(page.locator('#preview .cell').first()).toHaveCSS('border-top-width', '1px');
+
+    await page.click('#previewModeSample');
+    await expect(page.locator('#sample-preview .cell').first()).toHaveCSS('border-top-width', '0px');
+    // centering still applies, it only says how the glyphs sit on their line
+    await expect(page.locator('#sample-preview .cell').first()).toHaveCSS('justify-content', 'center');
 });
 
 test('the sample text preview replaces the grid and can be edited', async ({page}) => {
@@ -658,7 +698,7 @@ test('the more options switch hides the extra controls', async ({page}) => {
     await expect(page.locator('label[for=advanced]')).toHaveText('More options');
     expect(await page.locator('#showGrid').evaluate((el) =>
         [...el.closest('.card').querySelectorAll('input[role=switch]')].map((input) => input.id)))
-        .toEqual(['outline', 'antialiasing', 'subpixel', 'italic', 'centered', 'showGrid', 'advanced']);
+        .toEqual(['outline', 'antialiasing', 'italic', 'centered', 'showGrid', 'advanced']);
 
     for (const id of ['colorText', 'colorBackground', 'exportScale', 'sampleText']) {
         await expect(page.locator(`#${id}`)).toBeHidden();
@@ -710,11 +750,15 @@ test('both previews wear the same frame', async ({page}) => {
 
     const frame = (selector) => page.locator(selector).evaluate((el) => {
         const style = getComputedStyle(el);
-        return [style.border, style.borderRadius, style.padding].join(' | ');
+        return ['borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+            'borderColor', 'borderRadius', 'padding'].map((name) => `${name}: ${style[name]}`).join(' | ');
     });
 
     const bitmap = await frame('#preview');
-    expect(bitmap).toContain('5px solid');
+    // three sides of frame, the tab bar above being the fourth
+    expect(bitmap).toContain('borderTopWidth: 0px');
+    expect(bitmap).toContain('borderLeftWidth: 5px');
+    expect(bitmap).toContain('borderRadius: 0px 0px 10px 10px');
 
     await page.click('#previewModeSample');
     await expect(page.locator('#sample-preview')).toBeVisible();

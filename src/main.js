@@ -99,9 +99,25 @@ Alpine.data('converter', (a) => ({
         })
     },
 
+    /**
+     * Load font from a local File object
+     * @param file
+     */
+    loadFile(file) {
+        return this.loadURL(URL.createObjectURL(file));
+    },
+
     onFile(event) {
-        let url = URL.createObjectURL(event.target.files[0]);
-        this.loadURL(url)
+        this.loadFile(event.target.files[0]);
+    },
+
+    onDrop(event) {
+        const file = event.dataTransfer.files[0];
+        if (!file) {
+            return;
+        }
+        this.inputType = 'file';
+        this.loadFile(file);
     },
 
     /**

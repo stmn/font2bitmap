@@ -210,7 +210,6 @@ Alpine.data('converter', (a) => ({
         const previousUrl = this.fontUrl;
 
         this.applyState(state);
-        this.inputType = 'fontUrl';
 
         // an upload only comes back if the session really had one: the radio
         // can be moved to "From File" without ever picking a file
@@ -218,6 +217,8 @@ Alpine.data('converter', (a) => ({
             await this.restoreSavedFontFile(fontFile);
             return;
         }
+
+        this.inputType = 'fontUrl';
 
         // a changed URL reloads the font and takes the stashed variant with it.
         // An unchanged one never does, so hand it over here. Comparing the two
@@ -245,6 +246,8 @@ Alpine.data('converter', (a) => ({
         if (!file) {
             // the stashed variant belongs to the session that cannot come back
             this.takeRestoredFontIndex();
+            // what stays on screen is the URL font, so that is the source
+            this.inputType = 'fontUrl';
             toast("Saved font file is no longer available");
             return;
         }

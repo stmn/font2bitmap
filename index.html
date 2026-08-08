@@ -177,8 +177,9 @@
                  takes no pointer events and would never show it itself -->
             <span :title="hasSavedSession() ? '' : 'No saved session yet'">
                 <a href="#" id="lastSession" class="link-light text-decoration-none"
-                   :class="{'disabled': !hasSavedSession()}"
-                   :aria-disabled="!hasSavedSession()"
+                   :class="hasSavedSession() ? '' : 'disabled'"
+                   :aria-disabled="hasSavedSession() ? 'false' : 'true'"
+                   :tabindex="hasSavedSession() ? false : '-1'"
                    @click.prevent="restoreSavedSession()">Last session</a>
             </span>
         </div>

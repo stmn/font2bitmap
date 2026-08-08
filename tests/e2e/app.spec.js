@@ -318,7 +318,6 @@ test('a saved session brings an uploaded font file back', async ({page}) => {
     await page.goto('/');
     await expect(page.locator('#preview .cell')).toHaveCount(ASCII_COUNT);
 
-    // click, not check: the restore moves the radio on to "From File"
     await page.click('#lastSession');
 
     await expect(page.locator('#inputType_file')).toBeChecked();
@@ -331,6 +330,17 @@ test('a saved session brings an uploaded font file back', async ({page}) => {
     await expect
         .poll(() => page.evaluate(() => document.querySelector('style[x-text]').textContent))
         .toContain('url(blob:');
+
+    // a URL font takes over from the restored upload, so the hint has to go
+    await page.check('#inputType_fontUrl');
+    await page.fill('#font', FIXTURE_URL);
+    await page.check('#inputType_file');
+    // the row has to be back on screen first, or the hint counts as hidden
+    // because its whole row is
+    await expect(page.locator('#file')).toBeVisible();
+    await expect(page.locator('#restoredFile')).toBeHidden();
+    await expect(page.locator('#preview .cell')).toHaveCount(3);
+
     expect(errors).toEqual([]);
 });
 
@@ -357,7 +367,9 @@ test('a session whose uploaded font is gone restores without it', async ({page})
     await page.click('#lastSession');
 
     await expect(page.locator('.toastify')).toContainText('Saved font file is no longer available');
-    // everything but the font still comes back, on the font already loaded
+    // everything but the font still comes back, on the font already loaded,
+    // which is the one the URL source points at
+    await expect(page.locator('#inputType_fontUrl')).toBeChecked();
     await expect(page.locator('#characters')).toHaveValue('XYZ');
     await expect(page.locator('#preview .cell')).toHaveCount(3);
     await expect(page.locator('#restoredFile')).toBeHidden();
@@ -568,6 +580,8 @@ test('the last session link is disabled without a saved session', async ({page})
     await expect(link).toHaveClass(/disabled/);
     await expect(link).toHaveAttribute('aria-disabled', 'true');
     await expect(link).toHaveCSS('pointer-events', 'none');
+    // a disabled link has to drop out of the tab order too
+    await expect(link).toHaveAttribute('tabindex', '-1');
     await expect(link.locator('..')).toHaveAttribute('title', 'No saved session yet');
 });
 
@@ -745,9 +759,7 @@ const expectErrorBanner = async (page, brokenUrl) => {
     await page.fill('#font', brokenUrl);
     await expect(page.locator('.alert-danger')).toBeVisible({timeout: 10000});
     await expect(page.locator('#preview')).toHaveCount(0);
-    // nothing to preview, so the mode toggle goes away with the grid even
-    // once the advanced section it lives in is open
-    await page.check('#advanced');
+    // nothing to preview, so the tabs go away with the grid they switch
     await expect(page.locator('#previewModeBitmap')).toBeHidden();
 
     // and there is no font binary to read glyphs from
